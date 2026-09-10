@@ -1,0 +1,338 @@
+meta:
+  factor_schema_version: 1.0.0
+  factor_logic_version: 1.0.0
+  weight_version: 1.0.0
+  scoring_engine_version: 1.0.0
+  status: research_prior
+  production_note: All sensitivities and thresholds are engineering priors and require point-in-time walk-forward calibration.
+assets:
+- id: CSI300
+  name: 沪深300
+  family: equity
+  currency: CNY
+- id: CSI_A500
+  name: 中证A500
+  family: equity
+  currency: CNY
+- id: CSI500
+  name: 中证500
+  family: equity
+  currency: CNY
+- id: CSI1000
+  name: 中证1000
+  family: equity
+  currency: CNY
+- id: CHINEXT
+  name: 创业板指
+  family: equity
+  currency: CNY
+- id: STAR50
+  name: 科创50
+  family: equity
+  currency: CNY
+- id: RMB_GOLD
+  name: 人民币黄金
+  family: gold
+  currency: CNY
+equity_factors:
+- id: EQ01_CN_FUNDING_LIQUIDITY
+  name: 国内资金面流动性
+  group: cn_liquidity
+  evidence: A/B
+  frequency: daily
+  max_age: 1d
+- id: EQ02_CN_CREDIT_MONEY
+  name: 信用与货币扩张
+  group: cn_credit
+  evidence: A/B
+  frequency: monthly
+  max_age: next_release
+- id: EQ03_CN_DISCOUNT_RATE
+  name: 国内折现率环境
+  group: cn_rates
+  evidence: A/B
+  frequency: daily
+  max_age: 2d
+- id: EQ04_CN_GROWTH_MOMENTUM
+  name: 国内增长动能
+  group: macro
+  evidence: A
+  frequency: monthly
+  max_age: next_release
+- id: EQ05_PRICE_PROFIT_CYCLE
+  name: 价格—利润周期
+  group: macro
+  evidence: A/B
+  frequency: monthly
+  max_age: next_release
+- id: EQ06_INDEX_EARNINGS
+  name: 指数盈利与盈利修正
+  group: earnings
+  evidence: A
+  frequency: daily_or_weekly
+  max_age: provider_dependent
+- id: EQ07_VALUATION_ERP
+  name: 估值与股权风险溢价
+  group: valuation
+  evidence: A/B
+  frequency: daily
+  max_age: 5d
+- id: EQ08_POLICY_SUPPORT
+  name: 政策支持
+  group: policy
+  evidence: B
+  frequency: event
+  max_age: event_decay
+- id: EQ09_RMB_EXTERNAL_BALANCE
+  name: 人民币与外部平衡
+  group: external
+  evidence: B/C
+  frequency: daily
+  max_age: 2d
+- id: EQ10_GLOBAL_FIN_CONDITIONS
+  name: 全球金融条件
+  group: global_rates_fx
+  evidence: A/B
+  frequency: daily
+  max_age: 2d
+- id: EQ11_FOREIGN_ACTIVITY
+  name: 外资活动
+  group: flow
+  evidence: B
+  frequency: daily_quarterly
+  max_age: source_dependent
+- id: EQ12_DOMESTIC_FLOW_LEVERAGE
+  name: 国内资金与杠杆
+  group: flow
+  evidence: B
+  frequency: daily
+  max_age: 2d
+- id: EQ13_MARKET_BREADTH_LIQUIDITY
+  name: 市场广度与交易流动性
+  group: market_state
+  evidence: A/B
+  frequency: daily
+  max_age: 1d
+- id: EQ14_TREND_MOMENTUM
+  name: 趋势与动量
+  group: market_state
+  evidence: B
+  frequency: daily
+  max_age: 1d
+- id: EQ15_RISK_SENTIMENT_VOL
+  name: 风险偏好、情绪与波动
+  group: market_state
+  evidence: B/C
+  frequency: daily
+  max_age: 1d
+equity_sensitivity_prior:
+  EQ01_CN_FUNDING_LIQUIDITY:
+    CSI300: 2.0
+    CSI_A500: 2.5
+    CSI500: 3.0
+    CSI1000: 4.0
+    CHINEXT: 4.0
+    STAR50: 4.0
+  EQ02_CN_CREDIT_MONEY:
+    CSI300: 3.0
+    CSI_A500: 3.0
+    CSI500: 3.5
+    CSI1000: 3.5
+    CHINEXT: 3.5
+    STAR50: 3.0
+  EQ03_CN_DISCOUNT_RATE:
+    CSI300: 2.0
+    CSI_A500: 2.5
+    CSI500: 3.0
+    CSI1000: 3.5
+    CHINEXT: 4.0
+    STAR50: 4.0
+  EQ04_CN_GROWTH_MOMENTUM:
+    CSI300: 3.5
+    CSI_A500: 3.5
+    CSI500: 3.5
+    CSI1000: 3.0
+    CHINEXT: 3.0
+    STAR50: 2.5
+  EQ05_PRICE_PROFIT_CYCLE:
+    CSI300: 3.5
+    CSI_A500: 3.5
+    CSI500: 3.5
+    CSI1000: 3.0
+    CHINEXT: 3.5
+    STAR50: 3.0
+  EQ06_INDEX_EARNINGS:
+    CSI300: 4.0
+    CSI_A500: 4.0
+    CSI500: 3.5
+    CSI1000: 3.5
+    CHINEXT: 4.0
+    STAR50: 4.0
+  EQ07_VALUATION_ERP:
+    CSI300: 3.5
+    CSI_A500: 3.5
+    CSI500: 3.0
+    CSI1000: 2.5
+    CHINEXT: 3.0
+    STAR50: 2.5
+  EQ08_POLICY_SUPPORT:
+    CSI300: 3.0
+    CSI_A500: 3.0
+    CSI500: 3.0
+    CSI1000: 3.0
+    CHINEXT: 3.0
+    STAR50: 3.0
+  EQ09_RMB_EXTERNAL_BALANCE:
+    CSI300: 2.5
+    CSI_A500: 2.5
+    CSI500: 2.0
+    CSI1000: 1.5
+    CHINEXT: 2.5
+    STAR50: 2.5
+  EQ10_GLOBAL_FIN_CONDITIONS:
+    CSI300: 2.5
+    CSI_A500: 2.5
+    CSI500: 3.0
+    CSI1000: 3.5
+    CHINEXT: 4.0
+    STAR50: 4.0
+  EQ11_FOREIGN_ACTIVITY:
+    CSI300: 4.0
+    CSI_A500: 4.0
+    CSI500: 2.5
+    CSI1000: 1.5
+    CHINEXT: 3.0
+    STAR50: 2.0
+  EQ12_DOMESTIC_FLOW_LEVERAGE:
+    CSI300: 3.0
+    CSI_A500: 3.0
+    CSI500: 3.5
+    CSI1000: 4.0
+    CHINEXT: 4.0
+    STAR50: 4.0
+  EQ13_MARKET_BREADTH_LIQUIDITY:
+    CSI300: 2.5
+    CSI_A500: 2.5
+    CSI500: 3.0
+    CSI1000: 3.5
+    CHINEXT: 3.5
+    STAR50: 3.5
+  EQ14_TREND_MOMENTUM:
+    CSI300: 2.5
+    CSI_A500: 2.5
+    CSI500: 2.5
+    CSI1000: 3.0
+    CHINEXT: 3.0
+    STAR50: 3.0
+  EQ15_RISK_SENTIMENT_VOL:
+    CSI300: 2.5
+    CSI_A500: 2.5
+    CSI500: 3.0
+    CSI1000: 4.0
+    CHINEXT: 4.0
+    STAR50: 4.0
+gold_factors:
+- id: G01_US_REAL_YIELD
+  name: 美国实际利率
+  group: gold_rates_fx
+  priority: 4
+  evidence: A/B
+- id: G02_USD
+  name: 美元
+  group: gold_rates_fx
+  priority: 4
+  evidence: A/B
+- id: G03_FED_POLICY_SURPRISE
+  name: 美联储政策 surprise
+  group: gold_rates_fx
+  priority: 3
+  evidence: B
+- id: G04_RISK_UNCERTAINTY
+  name: 风险与不确定性
+  group: gold_risk
+  priority: 4
+  evidence: A/B
+- id: G05_INFLATION_REGIME
+  name: 通胀状态
+  group: gold_macro
+  priority: 1_to_3_conditional
+  evidence: B/C
+- id: G06_CENTRAL_BANK_DEMAND
+  name: 全球央行黄金需求
+  group: gold_structural
+  priority: 3
+  evidence: B
+- id: G07_GOLD_ETF_FLOW
+  name: 黄金ETF资金
+  group: gold_positioning
+  priority: 3
+  evidence: B
+- id: G08_CFTC_POSITIONING
+  name: CFTC仓位与拥挤
+  group: gold_positioning
+  priority: 2
+  evidence: B/C
+- id: G09_CHINA_PHYSICAL_PREMIUM
+  name: 中国实物需求与上海金溢价
+  group: gold_china_overlay
+  priority: 2
+  evidence: B/C
+- id: G10_SUPPLY_FABRICATION
+  name: 供给与首饰/工业需求
+  group: gold_structural
+  priority: 1
+  evidence: C
+- id: G11_USDCNY_TRANSLATION
+  name: USD/CNY换算
+  group: gold_china_overlay
+  priority: 4
+  evidence: A
+- id: G12_GOLD_TREND_MOMENTUM
+  name: 黄金趋势与动量
+  group: gold_positioning
+  priority: 2
+  evidence: B
+scoring:
+  factor_state_range:
+  - -100
+  - 100
+  asset_score_formula: clip(50 + direction_score/2, 0, 100)
+  labels:
+  - min: 80
+    max: 100
+    label: 强势偏积极
+  - min: 65
+    max: 79.999
+    label: 偏积极
+  - min: 45
+    max: 64.999
+    label: 中性/观察
+  - min: 30
+    max: 44.999
+    label: 偏谨慎
+  - min: 0
+    max: 29.999
+    label: 强风险警示
+  confidence_prior:
+    coverage: 0.3
+    source_quality: 0.25
+    agreement: 0.2
+    stability: 0.15
+    context_certainty: 0.1
+governance:
+  factor_lifecycle:
+  - candidate
+  - research
+  - shadow
+  - approved
+  - deprecated
+  production_online_weight_learning: false
+  required_backtest: point_in_time_walk_forward
+  versioned:
+  - factor_schema
+  - factor_logic
+  - weights
+  - event_rules
+  - data_definitions
+  - prompts
+  - scoring_engine

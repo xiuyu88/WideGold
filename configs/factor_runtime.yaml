@@ -1,0 +1,31 @@
+version: 1.1.0
+defaults:
+  update_frequency: daily
+  neutral_if_absent: false
+  max_stale_hours: null
+  minimum_reliability: 0.35
+overrides:
+  EQ02_CN_CREDIT_MONEY:
+    update_frequency: monthly
+  EQ04_CN_GROWTH_MOMENTUM:
+    update_frequency: monthly
+  EQ05_PRICE_PROFIT_CYCLE:
+    update_frequency: monthly
+  EQ06_INDEX_EARNINGS:
+    update_frequency: weekly
+  EQ08_POLICY_SUPPORT:
+    update_frequency: event
+    neutral_if_absent: true
+  G03_FED_POLICY_SURPRISE:
+    update_frequency: event
+    neutral_if_absent: true
+  G05_INFLATION_REGIME:
+    update_frequency: monthly
+  G06_CENTRAL_BANK_DEMAND:
+    update_frequency: monthly
+  G07_GOLD_ETF_FLOW:
+    update_frequency: weekly
+  G08_CFTC_POSITIONING:
+    update_frequency: weekly
+  G10_SUPPLY_FABRICATION:
+    update_frequency: quarterly

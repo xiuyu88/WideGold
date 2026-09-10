@@ -1,0 +1,6 @@
+close_analysis:
+  timezone: Asia/Shanghai
+  cron: "10 18 * * 1-5"
+  trading_calendar_guard: CN_A_SHARE
+  run_mode: FULL_REFRESH
+  publish_mode: AUTO

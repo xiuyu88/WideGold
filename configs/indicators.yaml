@@ -1,0 +1,460 @@
+version: 1.6.0
+indicators:
+- id: CN_DR007
+  name: DR007
+  provider: external
+  source_id: CHINAMONEY_AKSHARE
+  frequency: daily
+  external_params:
+    capability: china_money.dr007
+    unit: percent
+    semantic: Depository-institution 7-day pledged repo fixing/close proxy matching DR007 semantics; do not substitute
+      FR007.
+    expected_range:
+    - 0.0
+    - 20.0
+    asset_scoped: false
+    required_metadata:
+    - benchmark
+    metadata_equals:
+      benchmark: DR007
+- id: CN_M1_YOY
+  name: 中国M1同比
+  provider: akshare
+  source_id: SINA_PBOC_PROXY
+  frequency: monthly
+  lookback_days: 2200
+  params:
+    function: macro_china_supply_of_money
+    kwargs: {}
+  parser:
+    date_column: 统计时间
+    value_column: 货币（狭义货币M1）同比增长
+  definition_version: AK_M1_YOY_V1
+- id: CN_TSFIN_GROWTH
+  name: 社会融资规模增量（用于同比扩张代理）
+  provider: akshare
+  source_id: MOFCOM_PBOC_PROXY
+  frequency: monthly
+  lookback_days: 2200
+  params:
+    function: macro_china_shrzgm
+    kwargs: {}
+  parser:
+    date_column: 月份
+    value_column: 社会融资规模增量
+  definition_version: AK_TSF_INCREMENT_V1
+- id: CN_CGB_10Y
+  name: 中债国债10年收益率
+  provider: akshare
+  source_id: CHINABOND
+  frequency: daily
+  lookback_days: 400
+  params:
+    function: bond_china_yield
+    kwargs:
+      start_date: $START_YYYYMMDD
+      end_date: $END_YYYYMMDD
+  parser:
+    date_column: 日期
+    value_column: 10年
+    where:
+      曲线名称: 中债国债收益率曲线
+- id: CN_PMI_MANUFACTURING
+  name: 官方制造业PMI
+  provider: akshare
+  source_id: EASTMONEY_NBS_PROXY
+  frequency: monthly
+  lookback_days: 1200
+  params:
+    function: macro_china_pmi
+    kwargs: {}
+  parser:
+    date_column: 月份
+    value_column: 制造业-指数
+- id: CN_INDUSTRIAL_PRODUCTION_YOY
+  name: 规模以上工业增加值同比
+  provider: akshare
+  source_id: JIN10_NBS_PROXY
+  frequency: monthly
+  lookback_days: 2200
+  params:
+    function: macro_china_industrial_production_yoy
+    kwargs: {}
+  parser:
+    date_column: 日期
+    value_column: 今值
+  definition_version: AK_INDUSTRIAL_PRODUCTION_YOY_V1
+- id: CN_EXPORTS_YOY
+  name: 中国美元计价出口同比
+  provider: akshare
+  source_id: JIN10_CUSTOMS_PROXY
+  frequency: monthly
+  lookback_days: 2200
+  params:
+    function: macro_china_exports_yoy
+    kwargs: {}
+  parser:
+    date_column: 日期
+    value_column: 今值
+  definition_version: AK_EXPORTS_YOY_V1
+- id: CN_PPI_YOY
+  name: 中国PPI同比
+  provider: akshare
+  source_id: EASTMONEY_NBS_PROXY
+  frequency: monthly
+  lookback_days: 2200
+  params:
+    function: macro_china_ppi
+    kwargs: {}
+  parser:
+    date_column: 月份
+    value_column: 当月同比增长
+  definition_version: AK_PPI_YOY_V1
+- id: CN_INDUSTRIAL_PROFIT_YOY
+  name: 工业企业利润同比
+  provider: nbs
+  source_id: NBS
+  frequency: monthly
+  lookback_days: 2200
+  params:
+    listing_url: https://www.stats.gov.cn/sj/zxfb/
+    max_pages: 8
+  definition_version: NBS_INDUSTRIAL_PROFIT_YTD_V1
+  validation_params:
+    asset_scoped: false
+    expected_range:
+    - -100.0
+    - 500.0
+    unit: percent_yoy
+    required_metadata:
+    - aggregation_scope
+    metadata_allowed_values:
+      aggregation_scope:
+      - current_month
+      - ytd
+- id: CN_INDEX_EARNINGS_REV
+  name: 指数盈利修正
+  provider: external
+  source_id: EASTMONEY_AKSHARE
+  frequency: weekly
+  external_params:
+    capability: equity_index.earnings_revision
+    unit: revision_breadth_percent
+    semantic: Asset-scoped analyst earnings revision breadth, preferably %up revisions minus %down revisions over
+      a fixed window.
+    expected_range:
+    - -100.0
+    - 100.0
+    asset_scoped: true
+    required_metadata:
+    - methodology
+    - window_days
+    metadata_allowed_values:
+      methodology:
+      - revision_breadth
+    metadata_numeric_min:
+      window_days: 1
+- id: CN_INDEX_PE
+  name: 中证指数滚动市盈率
+  provider: akshare
+  source_id: CSINDEX
+  frequency: daily
+  lookback_days: 500
+  params:
+    function: stock_zh_index_hist_csindex
+    kwargs:
+      start_date: $START_YYYYMMDD
+      end_date: $END_YYYYMMDD
+    asset_params:
+      CSI300:
+        symbol: '000300'
+      CSI_A500:
+        symbol: '000510'
+      CSI500:
+        symbol: 000905
+      CSI1000:
+        symbol: 000852
+  parser:
+    date_column: 日期
+    value_column: 滚动市盈率
+  definition_version: CSINDEX_PE_V2
+- id: USDCNY
+  name: 美元兑人民币
+  provider: fred
+  source_id: FRED
+  frequency: daily
+  lookback_days: 400
+  params:
+    series_id: DEXCHUS
+- id: US_REAL_YIELD_10Y
+  name: 美国10年实际利率
+  provider: fred
+  source_id: FRED
+  frequency: daily
+  lookback_days: 400
+  params:
+    series_id: DFII10
+- id: US_BROAD_DOLLAR
+  name: 美国广义美元指数
+  provider: fred
+  source_id: FRED
+  frequency: daily
+  lookback_days: 400
+  params:
+    series_id: DTWEXBGS
+- id: US_VIX
+  name: VIX
+  provider: fred
+  source_id: FRED
+  frequency: daily
+  lookback_days: 400
+  params:
+    series_id: VIXCLS
+- id: CN_FOREIGN_ACTIVITY
+  name: 境外资金活动代理
+  provider: external
+  source_id: EASTMONEY_HKEX_PROXY
+  frequency: quarterly
+  external_params:
+    capability: china_equity.foreign_activity
+    unit: provider_declared_signed_flow
+    semantic: Directional foreign participation/holding-flow proxy. Turnover alone is not acceptable because it
+      has no positive/negative direction.
+    asset_scoped: false
+    required_metadata:
+    - directionality
+    - measure_type
+    metadata_equals:
+      directionality: signed
+    metadata_forbidden_values:
+      measure_type:
+      - turnover
+      - turnover_only
+- id: CN_MARGIN_BALANCE
+  name: 融资余额
+  provider: akshare_derived
+  source_id: JIN10_SSE_SZSE_DERIVED
+  frequency: daily
+  lookback_days: 500
+  params:
+    derived: cn_margin_total
+  definition_version: CN_MARGIN_TOTAL_V1
+- id: CN_MARKET_BREADTH
+  name: A股市场广度
+  provider: akshare_derived
+  source_id: EASTMONEY_MARKET_DERIVED
+  frequency: daily
+  lookback_days: 180
+  params:
+    derived: cn_market_breadth
+  definition_version: CN_BREADTH_V1
+- id: CN_RISK_APPETITE
+  name: A股风险偏好代理
+  provider: akshare_derived
+  source_id: EASTMONEY_MARKET_DERIVED
+  frequency: daily
+  lookback_days: 180
+  params:
+    derived: cn_risk_appetite
+  definition_version: CN_RISK_APPETITE_V1
+- id: CSI300_CLOSE
+  name: 沪深300收盘价
+  provider: akshare
+  source_id: EASTMONEY
+  frequency: daily
+  lookback_days: 400
+  params:
+    function: stock_zh_index_daily_em
+    kwargs:
+      symbol: csi000300
+      start_date: $START_YYYYMMDD
+      end_date: $END_YYYYMMDD
+  parser:
+    date_column: date
+    value_column: close
+- id: CSI_A500_CLOSE
+  name: 中证A500收盘价
+  provider: akshare
+  source_id: EASTMONEY
+  frequency: daily
+  lookback_days: 400
+  params:
+    function: stock_zh_index_daily_em
+    kwargs:
+      symbol: csi000510
+      start_date: $START_YYYYMMDD
+      end_date: $END_YYYYMMDD
+  parser:
+    date_column: date
+    value_column: close
+- id: CSI500_CLOSE
+  name: 中证500收盘价
+  provider: akshare
+  source_id: EASTMONEY
+  frequency: daily
+  lookback_days: 400
+  params:
+    function: stock_zh_index_daily_em
+    kwargs:
+      symbol: csi000905
+      start_date: $START_YYYYMMDD
+      end_date: $END_YYYYMMDD
+  parser:
+    date_column: date
+    value_column: close
+- id: CSI1000_CLOSE
+  name: 中证1000收盘价
+  provider: akshare
+  source_id: EASTMONEY
+  frequency: daily
+  lookback_days: 400
+  params:
+    function: stock_zh_index_daily_em
+    kwargs:
+      symbol: csi000852
+      start_date: $START_YYYYMMDD
+      end_date: $END_YYYYMMDD
+  parser:
+    date_column: date
+    value_column: close
+- id: CHINEXT_CLOSE
+  name: 创业板指收盘价
+  provider: akshare
+  source_id: EASTMONEY
+  frequency: daily
+  lookback_days: 400
+  params:
+    function: stock_zh_index_daily_em
+    kwargs:
+      symbol: sz399006
+      start_date: $START_YYYYMMDD
+      end_date: $END_YYYYMMDD
+  parser:
+    date_column: date
+    value_column: close
+- id: STAR50_CLOSE
+  name: 科创50收盘价
+  provider: akshare
+  source_id: EASTMONEY
+  frequency: daily
+  lookback_days: 400
+  params:
+    function: stock_zh_index_daily_em
+    kwargs:
+      symbol: sh000688
+      start_date: $START_YYYYMMDD
+      end_date: $END_YYYYMMDD
+  parser:
+    date_column: date
+    value_column: close
+- id: GOLD_USD
+  name: 美元黄金价格
+  provider: akshare
+  source_id: SINA_COMEX
+  frequency: daily
+  lookback_days: 500
+  params:
+    function: futures_foreign_hist
+    kwargs:
+      symbol: GC
+  parser:
+    date_column: date
+    value_column: close
+  definition_version: COMEX_GC_CONTINUOUS_V1
+- id: US_CPI_YOY
+  name: 美国CPI
+  provider: fred
+  source_id: FRED
+  frequency: monthly
+  lookback_days: 1500
+  params:
+    series_id: CPIAUCSL
+    units: pc1
+  definition_version: FRED_CPI_PC1_V1
+- id: GLOBAL_CENTRAL_BANK_GOLD
+  name: 全球央行购金
+  provider: external
+  source_id: WGC
+  frequency: quarterly
+  external_params:
+    capability: gold.global_central_bank_demand
+    unit: tonnes_net_purchase
+    semantic: Global official-sector net gold purchases for the observation period; preserve source revision/vintage.
+    asset_scoped: false
+    required_metadata:
+    - aggregation_scope
+    metadata_allowed_values:
+      aggregation_scope:
+      - monthly_net_purchases
+      - quarterly_net_purchases
+- id: CN_OFFICIAL_GOLD_RESERVE
+  name: 中国官方黄金储备
+  provider: akshare
+  source_id: NBS_PBOC_SINA_PROXY
+  frequency: monthly
+  lookback_days: 2200
+  params:
+    function: macro_china_foreign_exchange_gold
+    kwargs: {}
+  parser:
+    date_column: 统计时间
+    value_column: 黄金储备
+  definition_version: CN_OFFICIAL_GOLD_RESERVE_V1
+- id: GOLD_ETF_HOLDINGS
+  name: SPDR Gold Trust黄金持仓代理
+  provider: akshare
+  source_id: JIN10_SPDR_PROXY
+  frequency: weekly
+  lookback_days: 2600
+  params:
+    function: macro_cons_gold
+    kwargs: {}
+  parser:
+    date_column: 日期
+    value_column: 总库存
+  definition_version: SPDR_HOLDINGS_PROXY_V1
+- id: CFTC_GOLD_NET_LONG
+  name: CFTC黄金非商业净仓位代理
+  provider: akshare
+  source_id: JIN10_CFTC_PROXY
+  frequency: weekly
+  lookback_days: 2200
+  params:
+    function: macro_usa_cftc_c_holding
+    kwargs: {}
+  parser:
+    date_column: 日期
+    value_column_contains:
+    - 黄金
+    - 净仓位
+  definition_version: CFTC_GOLD_NONCOMMERCIAL_PROXY_V1
+- id: SGE_AU9999
+  name: 上海黄金交易所Au99.99
+  provider: akshare
+  source_id: SGE
+  frequency: daily
+  lookback_days: 400
+  params:
+    function: spot_hist_sge
+    kwargs:
+      symbol: Au99.99
+  parser:
+    date_column: date
+    value_column: close
+- id: GOLD_SUPPLY_DEMAND
+  name: 黄金供给/首饰工业需求代理
+  provider: external
+  source_id: WGC
+  frequency: quarterly
+  external_params:
+    capability: gold.supply_fabrication_demand
+    unit: structural_demand_pressure
+    semantic: Versioned structural gold supply/fabrication-demand pressure measure derived from quarterly WGC-compatible
+      components; positive means tighter/more supportive demand balance.
+    asset_scoped: false
+    required_metadata:
+    - methodology
+    - components
+    metadata_equals:
+      methodology: structural_pressure_v1

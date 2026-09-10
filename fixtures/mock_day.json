@@ -1,0 +1,56 @@
+{
+  "analysis_date": "2026-09-10",
+  "as_of": "2026-09-10T18:10:00+08:00",
+  "base_factor_states": {
+    "EQ01_CN_FUNDING_LIQUIDITY": 55,
+    "EQ02_CN_CREDIT_MONEY": 18,
+    "EQ03_CN_DISCOUNT_RATE": 24,
+    "EQ04_CN_GROWTH_MOMENTUM": -60,
+    "EQ05_PRICE_PROFIT_CYCLE": -12,
+    "EQ06_INDEX_EARNINGS": -36,
+    "EQ07_VALUATION_ERP": 38,
+    "EQ08_POLICY_SUPPORT": 8,
+    "EQ09_RMB_EXTERNAL_BALANCE": -8,
+    "EQ10_GLOBAL_FIN_CONDITIONS": 22,
+    "EQ11_FOREIGN_ACTIVITY": 5,
+    "EQ12_DOMESTIC_FLOW_LEVERAGE": 28,
+    "EQ13_MARKET_BREADTH_LIQUIDITY": 42,
+    "EQ14_TREND_MOMENTUM": 32,
+    "EQ15_RISK_SENTIMENT_VOL": 26,
+    "G01_US_REAL_YIELD": 78,
+    "G02_USD": 66,
+    "G03_FED_POLICY_SURPRISE": 12,
+    "G04_RISK_UNCERTAINTY": 55,
+    "G05_INFLATION_REGIME": 0,
+    "G06_CENTRAL_BANK_DEMAND": 62,
+    "G07_GOLD_ETF_FLOW": 50,
+    "G08_CFTC_POSITIONING": 8,
+    "G09_CHINA_PHYSICAL_PREMIUM": 14,
+    "G10_SUPPLY_FABRICATION": 0,
+    "G11_USDCNY_TRANSLATION": 38,
+    "G12_GOLD_TREND_MOMENTUM": 58
+  },
+  "news": [
+    {
+      "source_id": "FED_MOCK",
+      "source_tier": "S",
+      "title": "美联储释放偏鸽信号，实际利率回落且美元走弱",
+      "content": "Mock fixture: policy surprise is dovish; real yields and the dollar softened.",
+      "published_at": "2026-09-10T05:00:00+08:00"
+    },
+    {
+      "source_id": "PBOC_MOCK",
+      "source_tier": "S",
+      "title": "国内资金面边际改善，但最新PMI仍偏弱",
+      "content": "Mock fixture: funding conditions improved while growth indicators remain weak.",
+      "published_at": "2026-09-10T10:00:00+08:00"
+    },
+    {
+      "source_id": "POLICY_MOCK",
+      "source_tier": "S",
+      "title": "半导体产业支持政策正式落地",
+      "content": "Mock fixture: an official semiconductor support measure moved from guidance to implementation.",
+      "published_at": "2026-09-10T16:20:00+08:00"
+    }
+  ]
+}

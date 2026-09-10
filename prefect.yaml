@@ -1,0 +1,24 @@
+name: widegold-agent
+prefect-version: null
+build: null
+push: null
+pull:
+  - prefect.deployments.steps.set_working_directory:
+      directory: /app
+
+deployments:
+  - name: close-analysis
+    version: "1.0.0"
+    tags: [widegold, production]
+    description: "WideGold A-share close analysis. Trading-day guard remains inside the flow boundary."
+    entrypoint: src/widegold/workflows/prefect/analysis_flow.py:analysis_pipeline
+    parameters: {}
+    schedules:
+      - cron: "10 18 * * 1-5"
+        timezone: Asia/Shanghai
+    concurrency_limit:
+      limit: 1
+      collision_strategy: CANCEL_NEW
+    work_pool:
+      name: widegold-process
+      work_queue_name: default

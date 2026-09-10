@@ -1,0 +1,43 @@
+version: 1.1.0
+aliases:
+  qwen_fast:
+    tier: L1
+    provider: qwen
+    model: qwen3.8-flash
+    reasoning_effort: low
+
+  # Lowest-cost DeepSeek path for extraction/classification/explanation.
+  # reasoning_effort=none is translated by the provider to thinking=disabled.
+  deepseek_fast:
+    tier: L2
+    provider: deepseek
+    model: deepseek-v4-flash
+    reasoning_effort: none
+
+  # Routine semantic reasoning: Flash + low thinking effort.
+  deepseek_reasoning:
+    tier: L2
+    provider: deepseek
+    model: deepseek-v4-flash
+    reasoning_effort: low
+
+  # Rare escalation path: still Flash, but high thinking effort.
+  deepseek_high:
+    tier: L2
+    provider: deepseek
+    model: deepseek-v4-flash
+    reasoning_effort: high
+
+  gpt_expert:
+    tier: L3
+    provider: openai_compatible
+    model: gpt-5.6-sol
+    reasoning_effort: high
+
+routes:
+  extraction: [qwen_fast, deepseek_fast, deepseek_reasoning]
+  classification: [qwen_fast, deepseek_fast, deepseek_reasoning]
+  reasoning: [deepseek_reasoning, deepseek_high]
+  explanation: [deepseek_fast, qwen_fast, deepseek_reasoning]
+  expert_review: [deepseek_high, gpt_expert]
+  research: [deepseek_high, gpt_expert]

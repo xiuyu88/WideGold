@@ -1,0 +1,51 @@
+version: 1.2.0
+executor:
+  timeout_seconds: 20
+  retries: 2
+  retry_backoff_seconds: 0.25
+  circuit_breaker:
+    failure_threshold: 3
+    cooldown_seconds: 300
+factor_resolution:
+  allow_last_known_good: true
+  default_max_stale_hours:
+    daily: 72
+    weekly: 336
+    monthly: 1080
+    event: 168
+    quarterly: 3600
+  stale_reliability_floor: 0.35
+  stale_half_life_ratio: 0.5
+quality_gate:
+  minimum_preview_weighted_coverage: 0.55
+  minimum_publish_weighted_coverage: 0.72
+  minimum_critical_coverage: 0.5
+  maximum_unavailable_factor_ratio: 0.45
+  require_all_assets_scoreable: false
+  confidence_cap_if_critical_missing: 70
+  minimum_publish_fresh_weighted_coverage: 0.5
+critical_factors:
+  equity:
+  - EQ01_CN_FUNDING_LIQUIDITY
+  - EQ04_CN_GROWTH_MOMENTUM
+  - EQ06_INDEX_EARNINGS
+  - EQ13_MARKET_BREADTH_LIQUIDITY
+  gold:
+  - G01_US_REAL_YIELD
+  - G02_USD
+  - G04_RISK_UNCERTAINTY
+  - G11_USDCNY_TRANSLATION
+indicator_freshness:
+  fresh_hours:
+    daily: 72
+    weekly: 240
+    monthly: 840
+    quarterly: 2640
+    event: 168
+  hard_max_age_hours:
+    daily: 168
+    weekly: 504
+    monthly: 1440
+    quarterly: 3600
+    event: 336
+  stale_reliability_floor: 0.45

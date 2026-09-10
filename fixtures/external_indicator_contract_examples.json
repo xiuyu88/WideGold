@@ -1,0 +1,66 @@
+[
+  {
+    "indicator_id": "CN_DR007",
+    "observation_date": "2026-09-10",
+    "release_ts": "2026-09-10T09:00:00Z",
+    "ingest_ts": "2026-09-10T09:05:00Z",
+    "value": 1.52,
+    "source_id": "CHINAMONEY_GATEWAY",
+    "definition_version": "DR007_V1",
+    "metadata": {"benchmark": "DR007"}
+  },
+  {
+    "indicator_id": "CN_INDUSTRIAL_PROFIT_YOY",
+    "observation_date": "2026-08-31",
+    "release_ts": "2026-09-27T01:30:00Z",
+    "ingest_ts": "2026-09-27T01:35:00Z",
+    "value": 4.8,
+    "source_id": "NBS_GATEWAY",
+    "definition_version": "NBS_INDUSTRIAL_PROFIT_YOY_V1",
+    "metadata": {"aggregation_scope": "ytd"}
+  },
+  {
+    "indicator_id": "CN_INDEX_EARNINGS_REV",
+    "asset_id": "CSI300",
+    "observation_date": "2026-09-10",
+    "release_ts": "2026-09-10T08:00:00Z",
+    "ingest_ts": "2026-09-10T08:05:00Z",
+    "value": 12.0,
+    "source_id": "LICENSED_VENDOR",
+    "definition_version": "EARNINGS_REV_BREADTH_V1",
+    "metadata": {"methodology": "revision_breadth", "window_days": 30}
+  },
+  {
+    "indicator_id": "CN_FOREIGN_ACTIVITY",
+    "observation_date": "2026-09-10",
+    "release_ts": "2026-09-10T08:30:00Z",
+    "ingest_ts": "2026-09-10T08:35:00Z",
+    "value": 8.5,
+    "source_id": "CONNECT_VENDOR",
+    "definition_version": "FOREIGN_ACTIVITY_SIGNED_FLOW_V1",
+    "metadata": {"directionality": "signed", "measure_type": "holding_flow"}
+  },
+  {
+    "indicator_id": "GLOBAL_CENTRAL_BANK_GOLD",
+    "observation_date": "2026-08-31",
+    "release_ts": "2026-09-30T00:00:00Z",
+    "ingest_ts": "2026-09-30T00:10:00Z",
+    "value": 24.5,
+    "source_id": "WGC_IMF_GATEWAY",
+    "definition_version": "OFFICIAL_SECTOR_NET_PURCHASE_V1",
+    "metadata": {"aggregation_scope": "monthly_net_purchases"}
+  },
+  {
+    "indicator_id": "GOLD_SUPPLY_DEMAND",
+    "observation_date": "2026-06-30",
+    "release_ts": "2026-07-31T00:00:00Z",
+    "ingest_ts": "2026-07-31T00:10:00Z",
+    "value": 18.0,
+    "source_id": "WGC_GATEWAY",
+    "definition_version": "WGC_STRUCTURAL_PRESSURE_V1",
+    "metadata": {
+      "methodology": "structural_pressure_v1",
+      "components": ["mine_supply", "recycling", "jewellery", "technology", "investment"]
+    }
+  }
+]

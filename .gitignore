@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.env
+*.pyc
+*.pyo
+*.db
+.coverage
+htmlcov/
+node_modules/
+dist/
+.DS_Store
+# Local runtime / backups
+backups/
+*.sqlite3
+*.log
+.env.*.local
+apps/web/.vite/
+
+artifacts/release_gate_report.json

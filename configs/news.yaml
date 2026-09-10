@@ -1,0 +1,52 @@
+version: 1.2.0
+lookback_hours: 30
+max_documents: 12
+minimum_relevance_score: 1
+clustering:
+  enabled: true
+  similarity_threshold: 0.62
+  max_time_gap_hours: 18
+providers:
+  akshare_global_em:
+    source_id: EASTMONEY_NEWS
+    source_tier: C
+    function: stock_info_global_em
+relevance_keywords:
+  # Broad-index / China macro and policy
+  - 央行
+  - 人民银行
+  - 货币政策
+  - 降准
+  - 降息
+  - 社融
+  - M1
+  - PMI
+  - 工业利润
+  - 财政
+  - 国债
+  - 房地产
+  - 资本市场
+  - 证监会
+  - 融资融券
+  - 沪深港通
+  - ETF
+  - 人民币
+  - 汇率
+  - 美元
+  # Global conditions / Fed
+  - 美联储
+  - FOMC
+  - 鲍威尔
+  - 美国CPI
+  - 通胀
+  - 美债
+  - 实际利率
+  - VIX
+  # Gold / risk
+  - 黄金
+  - 金价
+  - 央行购金
+  - 地缘
+  - 冲突
+  - 战争
+  - 关税

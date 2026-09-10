@@ -1,0 +1,9 @@
+version: 1.0.0
+assets:
+  - {id: CSI300, name: 沪深300, family: equity, currency: CNY, display_order: 1}
+  - {id: CSI_A500, name: 中证A500, family: equity, currency: CNY, display_order: 2}
+  - {id: CSI500, name: 中证500, family: equity, currency: CNY, display_order: 3}
+  - {id: CSI1000, name: 中证1000, family: equity, currency: CNY, display_order: 4}
+  - {id: CHINEXT, name: 创业板指, family: equity, currency: CNY, display_order: 5}
+  - {id: STAR50, name: 科创50, family: equity, currency: CNY, display_order: 6}
+  - {id: RMB_GOLD, name: 人民币黄金, family: gold, currency: CNY, display_order: 7}

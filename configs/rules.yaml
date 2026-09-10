@@ -1,0 +1,16 @@
+version: 1.0.0
+quality_gate:
+  minimum_data_coverage: 0.70
+  require_all_assets: true
+
+conflicts:
+  - id: liquidity_without_growth_confirmation
+    when:
+      EQ01_CN_FUNDING_LIQUIDITY: "> 40"
+      EQ04_CN_GROWTH_MOMENTUM: "< -40"
+      EQ06_INDEX_EARNINGS: "< -20"
+    action:
+      factor: EQ01_CN_FUNDING_LIQUIDITY
+      contribution_multiplier: 0.60
+      confidence_penalty: 8
+      risk_flag: liquidity_without_growth_confirmation

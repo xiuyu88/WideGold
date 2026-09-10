@@ -1,0 +1,310 @@
+x-logging: &default-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-widegold-env: &widegold-env
+  WIDEGOLD_ENV: ${WIDEGOLD_ENV:-production}
+  WIDEGOLD_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-widegold}:${POSTGRES_PASSWORD:-widegold}@postgres:5432/${POSTGRES_DB:-widegold}
+  WIDEGOLD_REDIS_URL: redis://redis:6379/0
+  WIDEGOLD_PERSISTENCE: postgres
+  WIDEGOLD_RUNTIME_CONFIG_SOURCE: ${WIDEGOLD_RUNTIME_CONFIG_SOURCE:-db}
+  WIDEGOLD_RUNTIME_CONFIG_CACHE_TTL_SECONDS: ${WIDEGOLD_RUNTIME_CONFIG_CACHE_TTL_SECONDS:-5}
+  WIDEGOLD_RUNTIME_CONFIG_GENERATION_POLL_SECONDS: ${WIDEGOLD_RUNTIME_CONFIG_GENERATION_POLL_SECONDS:-1}
+  WIDEGOLD_ORCHESTRATION_MODE: prefect
+  WIDEGOLD_DATA_MODE: ${WIDEGOLD_DATA_MODE:-disabled}
+  WIDEGOLD_FACTOR_FEED_URL: ${WIDEGOLD_FACTOR_FEED_URL:-}
+  FRED_API_KEY: ${FRED_API_KEY:-}
+  WIDEGOLD_EXTERNAL_INDICATOR_URL: ${WIDEGOLD_EXTERNAL_INDICATOR_URL:-http://external-bridge:9100}
+  WIDEGOLD_EXTERNAL_INDICATOR_API_KEY: ${WIDEGOLD_EXTERNAL_INDICATOR_API_KEY:-}
+  WIDEGOLD_INGEST_API_KEY: ${WIDEGOLD_INGEST_API_KEY:-}
+  WIDEGOLD_EVENT_GRAPH_MODE: ${WIDEGOLD_EVENT_GRAPH_MODE:-llm}
+  WIDEGOLD_EXPLANATION_MODE: ${WIDEGOLD_EXPLANATION_MODE:-deterministic}
+  WIDEGOLD_NEWS_MODE: ${WIDEGOLD_NEWS_MODE:-akshare}
+  PREFECT_API_URL: http://prefect-server:4200/api
+  WIDEGOLD_PREFECT_DEPLOYMENT_NAME: ${WIDEGOLD_PREFECT_DEPLOYMENT_NAME:-widegold-close-analysis/close-analysis}
+  WIDEGOLD_PREFECT_RESEARCH_DEPLOYMENT_NAME: ${WIDEGOLD_PREFECT_RESEARCH_DEPLOYMENT_NAME:-widegold-factor-research/factor-research}
+  WIDEGOLD_PREFECT_REPLAY_DEPLOYMENT_NAME: ${WIDEGOLD_PREFECT_REPLAY_DEPLOYMENT_NAME:-widegold-replay-backfill/replay-backfill}
+  WIDEGOLD_PREFECT_CALIBRATION_DEPLOYMENT_NAME: ${WIDEGOLD_PREFECT_CALIBRATION_DEPLOYMENT_NAME:-widegold-calibration-review/calibration-review}
+  WIDEGOLD_LANGGRAPH_CHECKPOINT_MODE: ${WIDEGOLD_LANGGRAPH_CHECKPOINT_MODE:-postgres}
+  WIDEGOLD_LANGGRAPH_DATABASE_URL: postgresql://${POSTGRES_USER:-widegold}:${POSTGRES_PASSWORD:-widegold}@postgres:5432/langgraph
+  LANGGRAPH_STRICT_MSGPACK: ${LANGGRAPH_STRICT_MSGPACK:-true}
+  WIDEGOLD_TRACE_FRONTEND_ENABLED: ${WIDEGOLD_TRACE_FRONTEND_ENABLED:-true}
+  WIDEGOLD_TRACE_SSE_POLL_SECONDS: ${WIDEGOLD_TRACE_SSE_POLL_SECONDS:-1.0}
+  WIDEGOLD_TRACE_PAGE_SIZE: ${WIDEGOLD_TRACE_PAGE_SIZE:-100}
+  WIDEGOLD_AUTH_MODE: ${WIDEGOLD_AUTH_MODE:-session}
+  WIDEGOLD_SESSION_TTL_SECONDS: ${WIDEGOLD_SESSION_TTL_SECONDS:-28800}
+  WIDEGOLD_COOKIE_SECURE: ${WIDEGOLD_COOKIE_SECURE:-false}
+  WIDEGOLD_BOOTSTRAP_ADMIN_USERNAME: ${WIDEGOLD_BOOTSTRAP_ADMIN_USERNAME:-admin}
+  WIDEGOLD_BOOTSTRAP_ADMIN_PASSWORD: ${WIDEGOLD_BOOTSTRAP_ADMIN_PASSWORD:-}
+  WIDEGOLD_RUN_LOCK_ENABLED: ${WIDEGOLD_RUN_LOCK_ENABLED:-true}
+  WIDEGOLD_RUN_LOCK_TTL_SECONDS: ${WIDEGOLD_RUN_LOCK_TTL_SECONDS:-3600}
+  WIDEGOLD_DASHBOARD_CACHE_ENABLED: ${WIDEGOLD_DASHBOARD_CACHE_ENABLED:-true}
+  WIDEGOLD_DASHBOARD_CACHE_TTL_SECONDS: ${WIDEGOLD_DASHBOARD_CACHE_TTL_SECONDS:-300}
+  QWEN_API_KEY: ${QWEN_API_KEY:-}
+  QWEN_BASE_URL: ${QWEN_BASE_URL:-}
+  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+  DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+  GPT_COMPAT_API_KEY: ${GPT_COMPAT_API_KEY:-}
+  GPT_COMPAT_BASE_URL: ${GPT_COMPAT_BASE_URL:-https://ca.memofun.net/v1}
+  GPT_COMPAT_MODEL: ${GPT_COMPAT_MODEL:-gpt-5.6-sol}
+  SEARCH_PROVIDER: ${SEARCH_PROVIDER:-}
+  SEARCH_API_KEY: ${SEARCH_API_KEY:-}
+  SEARCH_BASE_URL: ${SEARCH_BASE_URL:-}
+  WIDEGOLD_RESEARCH_MODE: ${WIDEGOLD_RESEARCH_MODE:-disabled}
+
+services:
+  external-bridge:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      WIDEGOLD_EXTERNAL_INDICATOR_API_KEY: ${WIDEGOLD_EXTERNAL_INDICATOR_API_KEY:-}
+      WIDEGOLD_EXTERNAL_BRIDGE_DB: /data/bridge.sqlite3
+      WIDEGOLD_EXTERNAL_BRIDGE_RETRY_ATTEMPTS: ${WIDEGOLD_EXTERNAL_BRIDGE_RETRY_ATTEMPTS:-2}
+      WIDEGOLD_EXTERNAL_BRIDGE_RETRY_DELAY_SECONDS: ${WIDEGOLD_EXTERNAL_BRIDGE_RETRY_DELAY_SECONDS:-0.4}
+      WIDEGOLD_EXTERNAL_BRIDGE_HTTP_TIMEOUT_SECONDS: ${WIDEGOLD_EXTERNAL_BRIDGE_HTTP_TIMEOUT_SECONDS:-20}
+      WIDEGOLD_EARNINGS_REV_WINDOW_DAYS: ${WIDEGOLD_EARNINGS_REV_WINDOW_DAYS:-7}
+      WIDEGOLD_EARNINGS_REV_MIN_COVERAGE: ${WIDEGOLD_EARNINGS_REV_MIN_COVERAGE:-0.50}
+      WIDEGOLD_WGC_XLSX_URL: ${WIDEGOLD_WGC_XLSX_URL:-}
+    command: ["uvicorn", "apps.external_bridge.main:app", "--host", "0.0.0.0", "--port", "9100"]
+    volumes:
+      - external_bridge_data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9100/health', timeout=3).read()"
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    ports:
+      - "${EXTERNAL_BRIDGE_PORT:-9100}:9100"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-widegold}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-widegold}
+      POSTGRES_DB: ${POSTGRES_DB:-widegold}
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-widegold} -d ${POSTGRES_DB:-widegold}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    logging: *default-logging
+    environment: *widegold-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  db-seed:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    logging: *default-logging
+    environment: *widegold-env
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    command: ["python", "scripts/seed_reference.py"]
+    restart: "no"
+
+  langgraph-migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    logging: *default-logging
+    environment: *widegold-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-seed:
+        condition: service_completed_successfully
+    command: ["python", "scripts/setup_langgraph.py"]
+    restart: "no"
+
+  prefect-server:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER:-widegold}:${POSTGRES_PASSWORD:-widegold}@postgres:5432/prefect
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_UI_API_URL: http://localhost:${PREFECT_PORT:-4200}/api
+    command: ["prefect", "server", "start", "--host", "0.0.0.0"]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4200/api/health', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    ports:
+      - "${PREFECT_PORT:-4200}:4200"
+
+  prefect-bootstrap:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    logging: *default-logging
+    environment: *widegold-env
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - |
+        prefect work-pool create --type process widegold-process >/dev/null 2>&1 || true
+        prefect deploy --all
+    restart: "no"
+
+  prefect-worker:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    environment: *widegold-env
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+      db-seed:
+        condition: service_completed_successfully
+      langgraph-migrate:
+        condition: service_completed_successfully
+      prefect-bootstrap:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: ["prefect", "worker", "start", "--pool", "widegold-process"]
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    environment: *widegold-env
+    depends_on:
+      db-seed:
+        condition: service_completed_successfully
+      langgraph-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      prefect-server:
+        condition: service_healthy
+    command: ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    expose:
+      - "8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    expose:
+      - "80"
+
+  smoke:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    logging: *default-logging
+    environment:
+      <<: *widegold-env
+      WIDEGOLD_SMOKE_API_URL: http://api:8000
+      WIDEGOLD_SMOKE_PREFECT_URL: http://prefect-server:4200/api/health
+      WIDEGOLD_SMOKE_ADMIN_USERNAME: ${WIDEGOLD_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      WIDEGOLD_SMOKE_ADMIN_PASSWORD: ${WIDEGOLD_BOOTSTRAP_ADMIN_PASSWORD:-}
+      WIDEGOLD_SMOKE_TRIGGER_ANALYSIS: ${WIDEGOLD_SMOKE_TRIGGER_ANALYSIS:-false}
+    depends_on:
+      api:
+        condition: service_healthy
+      prefect-server:
+        condition: service_healthy
+    command: ["python", "scripts/e2e_smoke.py"]
+    restart: "no"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${HTTP_PORT:-80}:80"
+
+volumes:
+  postgres_data:
+  redis_data:
+  external_bridge_data:

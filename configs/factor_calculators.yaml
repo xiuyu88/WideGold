@@ -1,0 +1,275 @@
+version: 1.6.0
+defaults:
+  minimum_points: 3
+  reliability_multiplier: 1.0
+factors:
+  EQ01_CN_FUNDING_LIQUIDITY:
+    inputs:
+    - indicator: CN_DR007
+      feature: change_20
+      orientation: -1
+      weight: 1.0
+    conditional: funding_liquidity
+  EQ02_CN_CREDIT_MONEY:
+    inputs:
+    - indicator: CN_M1_YOY
+      feature: level_robust
+      orientation: 1
+      weight: 0.45
+    - indicator: CN_TSFIN_GROWTH
+      feature: yoy_pct_12
+      orientation: 1
+      weight: 0.55
+    conditional: credit_money
+  EQ03_CN_DISCOUNT_RATE:
+    inputs:
+    - indicator: CN_CGB_10Y
+      feature: change_20
+      orientation: -1
+      weight: 1.0
+  EQ04_CN_GROWTH_MOMENTUM:
+    inputs:
+    - indicator: CN_PMI_MANUFACTURING
+      feature: pmi_state
+      orientation: 1
+      weight: 0.5
+    - indicator: CN_INDUSTRIAL_PRODUCTION_YOY
+      feature: level_robust
+      orientation: 1
+      weight: 0.3
+    - indicator: CN_EXPORTS_YOY
+      feature: level_robust
+      orientation: 1
+      weight: 0.2
+    conditional: growth_momentum
+  EQ05_PRICE_PROFIT_CYCLE:
+    inputs:
+    - indicator: CN_PPI_YOY
+      feature: change_3
+      orientation: 1
+      weight: 0.35
+    - indicator: CN_INDUSTRIAL_PROFIT_YOY
+      feature: level_robust
+      orientation: 1
+      weight: 0.65
+    conditional: price_profit_cycle
+  EQ06_INDEX_EARNINGS:
+    scope: asset
+    inputs:
+    - indicator: CN_INDEX_EARNINGS_REV
+      feature: level_robust
+      orientation: 1
+      weight: 1.0
+      asset_scoped: true
+  EQ07_VALUATION_ERP:
+    scope: asset
+    conditional: equity_erp
+    inputs:
+    - indicator: CN_INDEX_PE
+      feature: level_robust
+      orientation: -1
+      weight: 0.75
+      asset_scoped: true
+    - indicator: CN_CGB_10Y
+      feature: level_robust
+      orientation: -1
+      weight: 0.25
+    reliability_multiplier: 0.85
+    proxy_note: ERP proxy = 100 / rolling PE - China 10Y government-bond yield; point-in-time quality depends on upstream
+      vintage availability.
+  EQ08_POLICY_SUPPORT:
+    event_only: true
+    inputs: []
+  EQ09_RMB_EXTERNAL_BALANCE:
+    inputs:
+    - indicator: USDCNY
+      feature: change_20
+      orientation: -1
+      weight: 0.55
+    - indicator: US_BROAD_DOLLAR
+      feature: change_20
+      orientation: -1
+      weight: 0.45
+    reliability_multiplier: 0.75
+    conditional: rmb_external_balance
+    proxy_note: Residual RMB pressure relative to broad USD; avoids mechanically treating all USD/CNY moves as China-specific
+      equity signals.
+  EQ10_GLOBAL_FIN_CONDITIONS:
+    inputs:
+    - indicator: US_REAL_YIELD_10Y
+      feature: change_20
+      orientation: -1
+      weight: 0.4
+    - indicator: US_BROAD_DOLLAR
+      feature: change_20
+      orientation: -1
+      weight: 0.35
+    - indicator: US_VIX
+      feature: change_20
+      orientation: -1
+      weight: 0.25
+  EQ11_FOREIGN_ACTIVITY:
+    inputs:
+    - indicator: CN_FOREIGN_ACTIVITY
+      feature: level_robust
+      orientation: 1
+      weight: 1.0
+  EQ12_DOMESTIC_FLOW_LEVERAGE:
+    inputs:
+    - indicator: CN_MARGIN_BALANCE
+      feature: change_20
+      orientation: 1
+      weight: 1.0
+  EQ13_MARKET_BREADTH_LIQUIDITY:
+    inputs:
+    - indicator: CN_MARKET_BREADTH
+      feature: level_robust
+      orientation: 1
+      weight: 1.0
+  EQ14_TREND_MOMENTUM:
+    scope: asset
+    asset_indicator_map:
+      CSI300: CSI300_CLOSE
+      CSI_A500: CSI_A500_CLOSE
+      CSI500: CSI500_CLOSE
+      CSI1000: CSI1000_CLOSE
+      CHINEXT: CHINEXT_CLOSE
+      STAR50: STAR50_CLOSE
+    inputs:
+    - indicator: $ASSET
+      feature: return_20
+      orientation: 1
+      weight: 0.6
+    - indicator: $ASSET
+      feature: return_60
+      orientation: 1
+      weight: 0.4
+  EQ15_RISK_SENTIMENT_VOL:
+    inputs:
+    - indicator: CN_RISK_APPETITE
+      feature: level_robust
+      orientation: 1
+      weight: 0.6
+    - indicator: US_VIX
+      feature: change_20
+      orientation: -1
+      weight: 0.4
+  G01_US_REAL_YIELD:
+    inputs:
+    - indicator: US_REAL_YIELD_10Y
+      feature: change_20
+      orientation: -1
+      weight: 0.65
+    - indicator: US_REAL_YIELD_10Y
+      feature: level_robust
+      orientation: -1
+      weight: 0.35
+  G02_USD:
+    inputs:
+    - indicator: US_BROAD_DOLLAR
+      feature: change_20
+      orientation: -1
+      weight: 1.0
+  G03_FED_POLICY_SURPRISE:
+    event_only: true
+    inputs: []
+  G04_RISK_UNCERTAINTY:
+    inputs:
+    - indicator: US_VIX
+      feature: change_20
+      orientation: 1
+      weight: 0.5
+    - indicator: US_VIX
+      feature: level_robust
+      orientation: 1
+      weight: 0.5
+  G05_INFLATION_REGIME:
+    conditional: gold_inflation
+    inputs:
+    - indicator: US_CPI_YOY
+      feature: change_3
+      orientation: 1
+      weight: 0.3
+    - indicator: US_REAL_YIELD_10Y
+      feature: change_20
+      orientation: -1
+      weight: 0.4
+    - indicator: US_BROAD_DOLLAR
+      feature: change_20
+      orientation: -1
+      weight: 0.3
+  G06_CENTRAL_BANK_DEMAND:
+    inputs:
+    - indicator: GLOBAL_CENTRAL_BANK_GOLD
+      feature: level_robust
+      orientation: 1
+      weight: 0.85
+    - indicator: CN_OFFICIAL_GOLD_RESERVE
+      feature: change_3
+      orientation: 1
+      weight: 0.15
+    reliability_multiplier: 0.9
+    proxy_note: Global official-sector demand defines the factor; China reserve changes are only a bounded confirmation/fallback
+      proxy.
+    conditional: central_bank_gold_demand
+  G07_GOLD_ETF_FLOW:
+    inputs:
+    - indicator: GOLD_ETF_HOLDINGS
+      feature: change_4
+      orientation: 1
+      weight: 1.0
+    reliability_multiplier: 0.82
+    proxy_note: SPDR Gold Trust holdings are a liquid investment-demand proxy, not total global gold ETF holdings.
+  G08_CFTC_POSITIONING:
+    inputs:
+    - indicator: CFTC_GOLD_NET_LONG
+      feature: change_4
+      orientation: 1
+      weight: 0.6
+    - indicator: CFTC_GOLD_NET_LONG
+      feature: level_robust
+      orientation: 1
+      weight: 0.4
+    reliability_multiplier: 0.78
+    saturating: true
+    proxy_note: AKShare/Jin10 mirror of CFTC commodity non-commercial positioning; release lag remains relevant.
+    conditional: cftc_positioning
+  G09_CHINA_PHYSICAL_PREMIUM:
+    conditional: gold_china_premium
+    reliability_multiplier: 0.8
+    inputs:
+    - indicator: SGE_AU9999
+      feature: return_20
+      orientation: 1
+      weight: 0.35
+    - indicator: GOLD_USD
+      feature: return_20
+      orientation: 1
+      weight: 0.35
+    - indicator: USDCNY
+      feature: change_20
+      orientation: 1
+      weight: 0.3
+    proxy_note: Local premium is reconstructed as SGE Au99.99 / (USD gold * USD/CNY / 31.1034768) - 1.
+  G10_SUPPLY_FABRICATION:
+    inputs:
+    - indicator: GOLD_SUPPLY_DEMAND
+      feature: level_robust
+      orientation: 1
+      weight: 1.0
+  G11_USDCNY_TRANSLATION:
+    inputs:
+    - indicator: USDCNY
+      feature: change_20
+      orientation: 1
+      weight: 1.0
+  G12_GOLD_TREND_MOMENTUM:
+    inputs:
+    - indicator: GOLD_USD
+      feature: return_20
+      orientation: 1
+      weight: 0.55
+    - indicator: GOLD_USD
+      feature: return_60
+      orientation: 1
+      weight: 0.45

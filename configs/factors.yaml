@@ -1,0 +1,299 @@
+version: 1.0.0
+factors:
+- id: EQ01_CN_FUNDING_LIQUIDITY
+  name: 国内资金面流动性
+  family: equity
+  group: cn_liquidity
+  evidence: A_B
+  reliability: 0.9
+  horizons:
+    tactical: 0.65
+    swing: 0.35
+    strategic: 0.0
+  scope: global
+- id: EQ02_CN_CREDIT_MONEY
+  name: 信用与货币扩张
+  family: equity
+  group: cn_credit
+  evidence: A_B
+  reliability: 0.85
+  horizons:
+    tactical: 0.1
+    swing: 0.55
+    strategic: 0.35
+  scope: global
+- id: EQ03_CN_DISCOUNT_RATE
+  name: 国内折现率环境
+  family: equity
+  group: cn_rates
+  evidence: A_B
+  reliability: 0.85
+  horizons:
+    tactical: 0.25
+    swing: 0.55
+    strategic: 0.2
+  scope: global
+- id: EQ04_CN_GROWTH_MOMENTUM
+  name: 国内增长动能
+  family: equity
+  group: macro
+  evidence: A
+  reliability: 0.92
+  horizons:
+    tactical: 0.1
+    swing: 0.55
+    strategic: 0.35
+  scope: global
+- id: EQ05_PRICE_PROFIT_CYCLE
+  name: 价格—利润周期
+  family: equity
+  group: macro
+  evidence: A_B
+  reliability: 0.86
+  horizons:
+    tactical: 0.05
+    swing: 0.5
+    strategic: 0.45
+  scope: global
+- id: EQ06_INDEX_EARNINGS
+  name: 指数盈利与盈利修正
+  family: equity
+  group: earnings
+  evidence: A
+  reliability: 0.93
+  horizons:
+    tactical: 0.05
+    swing: 0.45
+    strategic: 0.5
+  scope: asset
+- id: EQ07_VALUATION_ERP
+  name: 估值与股权风险溢价
+  family: equity
+  group: valuation
+  evidence: A_B
+  reliability: 0.88
+  horizons:
+    tactical: 0.05
+    swing: 0.25
+    strategic: 0.7
+  scope: asset
+- id: EQ08_POLICY_SUPPORT
+  name: 政策支持
+  family: equity
+  group: policy
+  evidence: B
+  reliability: 0.78
+  horizons:
+    tactical: 0.45
+    swing: 0.45
+    strategic: 0.1
+  scope: global
+- id: EQ09_RMB_EXTERNAL_BALANCE
+  name: 人民币与外部平衡
+  family: equity
+  group: external
+  evidence: B_C
+  reliability: 0.72
+  horizons:
+    tactical: 0.4
+    swing: 0.45
+    strategic: 0.15
+  scope: global
+- id: EQ10_GLOBAL_FIN_CONDITIONS
+  name: 全球金融条件
+  family: equity
+  group: global_rates_fx
+  evidence: A_B
+  reliability: 0.86
+  horizons:
+    tactical: 0.45
+    swing: 0.45
+    strategic: 0.1
+  scope: global
+- id: EQ11_FOREIGN_ACTIVITY
+  name: 外资活动
+  family: equity
+  group: flow
+  evidence: B
+  reliability: 0.72
+  horizons:
+    tactical: 0.55
+    swing: 0.35
+    strategic: 0.1
+  scope: global
+- id: EQ12_DOMESTIC_FLOW_LEVERAGE
+  name: 国内资金与杠杆
+  family: equity
+  group: flow
+  evidence: B
+  reliability: 0.78
+  horizons:
+    tactical: 0.6
+    swing: 0.35
+    strategic: 0.05
+  scope: global
+- id: EQ13_MARKET_BREADTH_LIQUIDITY
+  name: 市场广度与交易流动性
+  family: equity
+  group: market_state
+  evidence: A_B
+  reliability: 0.86
+  horizons:
+    tactical: 0.8
+    swing: 0.2
+    strategic: 0.0
+  scope: global
+- id: EQ14_TREND_MOMENTUM
+  name: 趋势与动量
+  family: equity
+  group: market_state
+  evidence: B
+  reliability: 0.72
+  horizons:
+    tactical: 0.85
+    swing: 0.15
+    strategic: 0.0
+  scope: asset
+- id: EQ15_RISK_SENTIMENT_VOL
+  name: 风险偏好、情绪与波动
+  family: equity
+  group: market_state
+  evidence: B_C
+  reliability: 0.7
+  horizons:
+    tactical: 0.85
+    swing: 0.15
+    strategic: 0.0
+  scope: global
+- id: G01_US_REAL_YIELD
+  name: 美国实际利率
+  family: gold
+  group: gold_rates_fx
+  evidence: A_B
+  reliability: 0.9
+  horizons:
+    tactical: 0.35
+    swing: 0.5
+    strategic: 0.15
+  scope: global
+- id: G02_USD
+  name: 美元
+  family: gold
+  group: gold_rates_fx
+  evidence: A_B
+  reliability: 0.88
+  horizons:
+    tactical: 0.5
+    swing: 0.4
+    strategic: 0.1
+  scope: global
+- id: G03_FED_POLICY_SURPRISE
+  name: 美联储政策 surprise
+  family: gold
+  group: gold_rates_fx
+  evidence: B
+  reliability: 0.76
+  horizons:
+    tactical: 0.85
+    swing: 0.15
+    strategic: 0.0
+  scope: global
+- id: G04_RISK_UNCERTAINTY
+  name: 风险与不确定性
+  family: gold
+  group: gold_risk
+  evidence: A_B
+  reliability: 0.84
+  horizons:
+    tactical: 0.65
+    swing: 0.25
+    strategic: 0.1
+  scope: global
+- id: G05_INFLATION_REGIME
+  name: 通胀状态
+  family: gold
+  group: gold_macro
+  evidence: B_C
+  reliability: 0.65
+  horizons:
+    tactical: 0.1
+    swing: 0.5
+    strategic: 0.4
+  scope: global
+- id: G06_CENTRAL_BANK_DEMAND
+  name: 全球央行黄金需求
+  family: gold
+  group: gold_structural
+  evidence: B
+  reliability: 0.8
+  horizons:
+    tactical: 0.0
+    swing: 0.2
+    strategic: 0.8
+  scope: global
+- id: G07_GOLD_ETF_FLOW
+  name: 黄金ETF资金
+  family: gold
+  group: gold_positioning
+  evidence: B
+  reliability: 0.78
+  horizons:
+    tactical: 0.55
+    swing: 0.4
+    strategic: 0.05
+  scope: global
+- id: G08_CFTC_POSITIONING
+  name: CFTC仓位与拥挤
+  family: gold
+  group: gold_positioning
+  evidence: B_C
+  reliability: 0.68
+  horizons:
+    tactical: 0.7
+    swing: 0.25
+    strategic: 0.05
+  scope: global
+- id: G09_CHINA_PHYSICAL_PREMIUM
+  name: 中国实物需求与上海金溢价
+  family: gold
+  group: gold_china_overlay
+  evidence: B_C
+  reliability: 0.7
+  horizons:
+    tactical: 0.45
+    swing: 0.4
+    strategic: 0.15
+  scope: global
+- id: G10_SUPPLY_FABRICATION
+  name: 供给与首饰工业需求
+  family: gold
+  group: gold_structural
+  evidence: C
+  reliability: 0.6
+  horizons:
+    tactical: 0.0
+    swing: 0.15
+    strategic: 0.85
+  scope: global
+- id: G11_USDCNY_TRANSLATION
+  name: USD/CNY换算
+  family: gold
+  group: gold_china_overlay
+  evidence: A
+  reliability: 0.95
+  horizons:
+    tactical: 0.55
+    swing: 0.35
+    strategic: 0.1
+  scope: global
+- id: G12_GOLD_TREND_MOMENTUM
+  name: 黄金趋势与动量
+  family: gold
+  group: gold_positioning
+  evidence: B
+  reliability: 0.72
+  horizons:
+    tactical: 0.8
+    swing: 0.2
+    strategic: 0.0
+  scope: global
