@@ -23,6 +23,33 @@ ARTIFACTS = ROOT / "artifacts"
 SECRET_RE = re.compile(r"sk-[A-Za-z0-9_-]{12,}")
 TEXT_SUFFIXES = {".py", ".yaml", ".yml", ".toml", ".md", ".json", ".sh", ".ps1", ".tsx", ".ts", ".js"}
 
+TEST_ENV_OVERRIDES = {
+    "WIDEGOLD_ENV": "test",
+    "WIDEGOLD_PERSISTENCE": "memory",
+    "WIDEGOLD_RUNTIME_CONFIG_SOURCE": "yaml",
+    "WIDEGOLD_ORCHESTRATION_MODE": "direct",
+    "WIDEGOLD_DATA_MODE": "mock",
+    "WIDEGOLD_EVENT_GRAPH_MODE": "mock",
+    "WIDEGOLD_EXPLANATION_MODE": "deterministic",
+    "WIDEGOLD_NEWS_MODE": "disabled",
+    "WIDEGOLD_RESEARCH_MODE": "mock",
+    "WIDEGOLD_AUTH_MODE": "disabled",
+    "WIDEGOLD_RUN_LOCK_ENABLED": "false",
+    "WIDEGOLD_DASHBOARD_CACHE_ENABLED": "false",
+    "WIDEGOLD_LANGGRAPH_CHECKPOINT_MODE": "memory",
+    # Empty values take precedence over .env in the subprocess and prevent release tests from
+    # reaching production data/LLM providers accidentally.
+    "WIDEGOLD_EXTERNAL_INDICATOR_URL": "",
+    "WIDEGOLD_FACTOR_FEED_URL": "",
+    "FRED_API_KEY": "",
+    "QWEN_API_KEY": "",
+    "DEEPSEEK_API_KEY": "",
+    "GPT_COMPAT_API_KEY": "",
+    "SEARCH_PROVIDER": "",
+    "SEARCH_API_KEY": "",
+    "SEARCH_BASE_URL": "",
+}
+
 
 def _run(
     name: str,
@@ -38,6 +65,8 @@ def _run(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return {
@@ -212,7 +241,9 @@ def _frontend_build_check() -> dict:
 
 def _secret_scan() -> dict:
     matches: list[str] = []
-    excluded = {".git", ".pytest_cache", "node_modules", "__pycache__", "dist"}
+    # Generated reports may contain captured command output and must not recursively scan
+    # themselves. Source and configuration files remain in scope.
+    excluded = {".git", ".pytest_cache", "artifacts", "node_modules", "__pycache__", "dist"}
     for path in ROOT.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
             continue
@@ -239,7 +270,9 @@ def _docker_check(require_docker: bool) -> dict:
             "status": "FAIL" if require_docker else "SKIP",
             "details": {"reason": "docker CLI not available in this environment"},
         }
-    return _run("docker_compose_config", [docker, "compose", "config"])
+    # Validation only: rendered Compose output expands .env secrets and must never be persisted
+    # in the release report.
+    return _run("docker_compose_config", [docker, "compose", "config", "--quiet"])
 
 
 def main() -> int:
@@ -255,11 +288,15 @@ def main() -> int:
     ARTIFACTS.mkdir(exist_ok=True)
     env = os.environ.copy()
     env["PYTHONPATH"] = os.pathsep.join([str(ROOT), str(ROOT / "src"), env.get("PYTHONPATH", "")])
+    test_env = {**env, **TEST_ENV_OVERRIDES}
 
     checks: list[dict] = []
     if not args.skip_tests:
         checks.append(
-            _perform("pytest", lambda: _run("pytest", [sys.executable, "-m", "pytest", "-q"], env=env))
+            _perform(
+                "pytest",
+                lambda: _run("pytest", [sys.executable, "-m", "pytest", "-q"], env=test_env),
+            )
         )
     checks.append(
         _perform(
@@ -275,7 +312,7 @@ def main() -> int:
     checks.append(_perform("yaml_static", _yaml_check))
     checks.append(_perform("final_env_template", _final_env_check))
     checks.append(_perform("external_bridge_static", _external_bridge_static_check))
-    checks.append(_perform("machine_output_contract", lambda: _machine_output_check(env)))
+    checks.append(_perform("machine_output_contract", lambda: _machine_output_check(test_env)))
     checks.append(_perform("frontend_build", _frontend_build_check))
     checks.append(
         _perform(

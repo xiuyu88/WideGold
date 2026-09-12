@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import hashlib
-import json
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 
@@ -18,6 +16,7 @@ from widegold.db.reference_materializer import materialize_reference_tables
 from widegold.db.session import db_session
 from widegold.settings.app import get_settings
 from widegold.settings.config import load_bootstrap_yaml
+from widegold.settings.config_hash import config_content_hash, json_compatible
 
 NOW = datetime.now(timezone.utc)
 EFFECTIVE_FROM = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -42,32 +41,12 @@ BOOTSTRAP_CONFIG_FILES: dict[str, str] = {
 
 
 def _json_compatible(value):
-    """Recursively convert YAML-native values into PostgreSQL JSONB-safe values.
-
-    PyYAML parses ISO calendar scalars such as 2026-01-01 into datetime.date.
-    Runtime config is stored as JSONB, so dates/datetimes must be normalized
-    to stable ISO-8601 strings before hashing and persistence.
-    """
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    if isinstance(value, dict):
-        return {str(key): _json_compatible(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_compatible(item) for item in value]
-    return value
+    """Backward-compatible wrapper for callers of the seed helper."""
+    return json_compatible(value)
 
 
 def _hash(data: dict) -> str:
-    normalized = _json_compatible(data)
-    raw = json.dumps(
-        normalized,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
+    return config_content_hash(data)
 
 
 def _version(content: dict, default: str = "1.0.0") -> str:

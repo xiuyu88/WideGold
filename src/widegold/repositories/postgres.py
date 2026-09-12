@@ -42,6 +42,7 @@ from widegold.schemas.research import FactorResearchCandidate, ResearchEvidence,
 from widegold.schemas.scores import DashboardSnapshot
 from widegold.schemas.trace import RunTraceEvent
 from widegold.schemas.replay import CalibrationResult
+from widegold.settings.config_hash import config_content_hash, json_compatible
 
 
 # Widest max_stale_hours in factor_runtime (quarterly = 3600h) plus headroom. Anything older can
@@ -64,11 +65,8 @@ class PostgresRepository:
         status: str,
         actor_user_id: UUID | None,
     ) -> tuple[dict, bool]:
-        import json
-
-        digest = hashlib.sha256(
-            json.dumps(content, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
-        ).hexdigest()
+        normalized_content = json_compatible(content)
+        digest = config_content_hash(normalized_content)
         now = datetime.now(timezone.utc)
         with db_session() as session:
             existing = session.execute(
@@ -78,17 +76,22 @@ class PostgresRepository:
                 )
             ).scalar_one_or_none()
             if existing is not None:
-                if existing.content_hash != digest:
+                existing_digest = config_content_hash(existing.content_json)
+                if existing_digest != digest:
                     raise ValueError(
                         f"Config {config_type} {version} already exists with different content"
                     )
+                # Repair hashes produced by older writers that used non-canonical JSON spacing.
+                if existing.content_hash != existing_digest:
+                    existing.content_hash = existing_digest
+                    session.flush()
                 return self._config_version_dict(existing, include_content=True), False
             row = ConfigVersionModel(
                 config_type=config_type,
                 version=version,
                 status=status,
                 content_hash=digest,
-                content_json=content,
+                content_json=normalized_content,
                 effective_from=now,
                 effective_to=None,
                 created_by=actor_user_id,
@@ -845,6 +848,7 @@ class PostgresRepository:
     def save_events(self, run_id: UUID, events: list[StructuredEvent]) -> None:
         now = datetime.now(timezone.utc)
         with db_session() as session:
+            links: list[EventFactorLinkModel] = []
             for event in events:
                 session.add(EventModel(
                     event_id=event.event_id,
@@ -870,7 +874,7 @@ class PostgresRepository:
                     created_at=now,
                 ))
                 for mapping in event.factors:
-                    session.add(EventFactorLinkModel(
+                    links.append(EventFactorLinkModel(
                         event_id=event.event_id,
                         factor_id=mapping.factor_id,
                         direction=mapping.direction,
@@ -879,6 +883,12 @@ class PostgresRepository:
                         asset_override_json=event.asset_overrides or None,
                         created_at=now,
                     ))
+
+            # The mapped models intentionally do not expose ORM relationships. Flush parent
+            # events explicitly before their factor links so PostgreSQL never observes a child
+            # row before the referenced event exists.
+            session.flush()
+            session.add_all(links)
 
 
     def get_factor_inputs(self, run_id: UUID) -> list[FactorInput]:
@@ -1182,6 +1192,23 @@ class PostgresRepository:
                     desc(AnalysisSnapshotModel.published_at),
                     desc(AnalysisSnapshotModel.created_at),
                 )
+                .limit(1)
+            )
+            row = session.execute(stmt).scalars().first()
+            return DashboardSnapshot.model_validate(row.snapshot_json) if row else None
+
+    def latest_preview(self) -> DashboardSnapshot | None:
+        with db_session() as session:
+            stmt = (
+                select(AnalysisSnapshotModel)
+                .join(AnalysisRunModel, AnalysisRunModel.analysis_run_id == AnalysisSnapshotModel.analysis_run_id)
+                .where(
+                    AnalysisSnapshotModel.published.is_(False),
+                    AnalysisRunModel.status.in_((
+                        AnalysisStatus.PREVIEW_READY.value, AnalysisStatus.QUALITY_FAILED.value
+                    )),
+                )
+                .order_by(desc(AnalysisRunModel.analysis_date), desc(AnalysisSnapshotModel.created_at))
                 .limit(1)
             )
             row = session.execute(stmt).scalars().first()

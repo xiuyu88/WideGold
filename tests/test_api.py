@@ -16,6 +16,31 @@ def test_mock_api_roundtrip():
     assert current.json()["analysis_run_id"] == payload["analysis_run_id"]
 
 
+def test_dashboard_preview_does_not_replace_published(monkeypatch):
+    from uuid import uuid4
+
+    from apps.api.routers import dashboard
+    from widegold.repositories.memory import InMemorySnapshotRepository
+    from widegold.schemas.scores import DashboardSnapshot
+
+    client = TestClient(app)
+    published = DashboardSnapshot.model_validate(client.post('/api/v1/mock/run').json())
+    repo = InMemorySnapshotRepository()
+    repo.save(published)
+    preview = published.model_copy(update={
+        'analysis_run_id': uuid4(), 'analysis_date': '2099-01-01',
+        'status': 'PREVIEW_READY', 'published': False,
+    })
+    repo.save(preview)
+    monkeypatch.setattr(dashboard, 'repository', lambda: repo)
+
+    response = client.get('/api/v1/dashboard/latest-preview')
+    assert response.status_code == 200
+    assert response.json()['analysis_run_id'] == str(preview.analysis_run_id)
+    assert response.json()['published'] is False
+    assert repo.latest_published().analysis_run_id == published.analysis_run_id
+
+
 def test_admin_trace_api_is_cursor_based():
     client = TestClient(app)
     run = client.post("/api/v1/mock/run")

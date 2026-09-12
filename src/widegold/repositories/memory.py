@@ -450,6 +450,15 @@ class InMemorySnapshotRepository:
             ),
         )
 
+    def latest_preview(self) -> DashboardSnapshot | None:
+        previews = [
+            item for item in self._items.values()
+            if not item.published and item.status in (
+                AnalysisStatus.PREVIEW_READY.value, AnalysisStatus.QUALITY_FAILED.value
+            )
+        ]
+        return max(previews, key=lambda item: (item.analysis_date, item.as_of), default=None)
+
     def latest_published_analysis_date(self):
         snapshot = self.latest_published()
         if snapshot is None or not snapshot.analysis_date:

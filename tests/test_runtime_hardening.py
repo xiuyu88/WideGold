@@ -46,9 +46,10 @@ def test_bridge_reports_a_warning_when_an_adapter_returns_nothing(tmp_path, monk
     monkeypatch.setenv("WIDEGOLD_EXTERNAL_BRIDGE_DB", str(tmp_path / "bridge.sqlite3"))
     service = ExternalBridgeService()
     capability = service.capabilities[0]
+    adapter_capability = capability
 
     class _SilentAdapter:
-        capability = capability
+        capability = adapter_capability
 
         def fetch(self, request):
             return None
@@ -65,6 +66,7 @@ def test_bridge_does_not_repeat_the_same_look_ahead_warning(tmp_path, monkeypatc
     monkeypatch.setenv("WIDEGOLD_EXTERNAL_BRIDGE_DB", str(tmp_path / "bridge.sqlite3"))
     service = ExternalBridgeService()
     capability = service.capabilities[0]
+    adapter_capability = capability
     future = NOW + timedelta(days=5)
 
     class _LookAheadResult:
@@ -78,7 +80,7 @@ def test_bridge_does_not_repeat_the_same_look_ahead_warning(tmp_path, monkeypatc
         ]
 
     class _LookAheadAdapter:
-        capability = capability
+        capability = adapter_capability
 
         def fetch(self, request):
             return _LookAheadResult()

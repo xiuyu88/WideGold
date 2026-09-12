@@ -1,5 +1,6 @@
 ﻿param(
-    [switch]$Analysis
+    [switch]$Analysis,
+    [string]$RunId
 )
 $ErrorActionPreference = "Stop"
 
@@ -158,7 +159,12 @@ if ($python) {
 }
 
 Write-Host "[3/3] Running containerized smoke test..."
-if ($Analysis) {
+if ($RunId) {
+    docker compose --profile tools run --rm `
+        -e WIDEGOLD_SMOKE_TRIGGER_ANALYSIS=true `
+        -e WIDEGOLD_SMOKE_RUN_ID=$RunId `
+        smoke
+} elseif ($Analysis) {
     docker compose --profile tools run --rm `
         -e WIDEGOLD_SMOKE_TRIGGER_ANALYSIS=true `
         smoke

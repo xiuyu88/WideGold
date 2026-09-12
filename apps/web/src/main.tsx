@@ -187,6 +187,7 @@ type TraceEvent = {
 function App() {
   const [data, setData] = useState<Snapshot | null>(null)
   const [preview, setPreview] = useState<Snapshot | null>(null)
+  const [viewMode, setViewMode] = useState<'published' | 'preview'>('published')
   const [trace, setTrace] = useState<TraceEvent[]>([])
   const [runStatus, setRunStatus] = useState('')
   const [error, setError] = useState('')
@@ -286,8 +287,20 @@ function App() {
 
   async function loadCurrent() {
     const res = await fetch('/api/v1/dashboard/current')
+    if (res.status === 404) { setData(null); return null }
     if (!res.ok) throw new Error(await res.text())
-    setData(await res.json())
+    const snapshot: Snapshot = await res.json()
+    setData(snapshot)
+    return snapshot
+  }
+
+  async function loadLatestPreview() {
+    const res = await fetch('/api/v1/dashboard/latest-preview')
+    if (res.status === 404) { setPreview(null); return null }
+    if (!res.ok) throw new Error(await res.text())
+    const snapshot: Snapshot = await res.json()
+    setPreview(snapshot)
+    return snapshot
   }
 
   async function runMock() {
@@ -331,7 +344,7 @@ function App() {
         if (statusRes.ok) {
           const run: AdminRun = await statusRes.json()
           setRunStatus(run.status)
-          if (run.snapshot) setPreview(run.snapshot)
+          if (run.snapshot) { setPreview(run.snapshot); setViewMode('preview') }
           if (['PREVIEW_READY','QUALITY_FAILED','PUBLISHED','FAILED','DATA_READY','CANCELLED','SKIPPED'].includes(run.status)) {
             if (run.snapshot) await loadFactorHealth(runId)
             return
@@ -351,15 +364,17 @@ function App() {
     const res = await fetch(`/api/v1/admin/runs/${preview.analysis_run_id}/publish`, {method:'POST'})
     if (!res.ok) throw new Error(await res.text())
     const published = await res.json()
-    setData(published); setPreview(null); setRunStatus('PUBLISHED')
+    setData(published); setPreview(null); setViewMode('published'); setRunStatus('PUBLISHED')
   }
 
   useEffect(() => {
     loadMe().then(() => Promise.all([loadDiagnostics(), loadConfigVersions(), loadAudit(), loadFactorHealth()])).catch(() => undefined)
-    loadCurrent().then(() => loadEvents()).catch(() => setError('尚无正式 Published Snapshot。'))
+    Promise.all([loadCurrent(), loadLatestPreview(), loadEvents()])
+      .then(([published, latest]) => { if (latest && (!published || latest.analysis_date > published.analysis_date)) setViewMode('preview') })
+      .catch(e => setError(`Dashboard 数据读取失败：${String(e)}`))
     return () => streamRef.current?.close()
   }, [])
-  const shown = preview || data
+  const shown = viewMode === 'preview' ? (preview || data) : (data || preview)
   const latestProgress = trace.length ? trace[trace.length - 1].progress : null
 
   return <main>
@@ -529,9 +544,19 @@ function App() {
       </div>}
     </section>}
 
-    {preview && <div className="previewbar">
-      <span>管理员 Preview · {preview.status}</span>
-      {preview.quality_gate?.passed_for_publish && <button onClick={() => publishPreview().catch(e => setError(String(e)))}>Publish</button>}
+    <section className="viewselector" aria-label="Dashboard 数据视图">
+      <button className={viewMode === 'published' ? 'active' : ''} disabled={!data} onClick={() => {setViewMode('published'); setSelectedAsset(null)}}>
+        正式 Published {data ? `· ${data.analysis_date}` : '· 暂无'}
+      </button>
+      <button className={viewMode === 'preview' || !data ? 'active preview' : 'preview'} disabled={!preview} onClick={() => {setViewMode('preview'); setSelectedAsset(null)}}>
+        最新 Preview {preview ? `· ${preview.analysis_date}` : '· 暂无'}
+      </button>
+      {preview && <span className="previewsummary">预览覆盖 {preview.quality_gate?.overall_weighted_coverage !== undefined ? `${(preview.quality_gate.overall_weighted_coverage * 100).toFixed(0)}%` : '未知'} · {preview.quality_gate?.passed_for_publish ? '达到发布门槛' : '未达到发布门槛'}</span>}
+    </section>
+
+    {shown && !shown.published && <div className="previewbar">
+      <span>预览 · {shown.quality_gate?.passed_for_publish ? '尚未正式发布' : '数据覆盖或质量未达发布门槛'} · {shown.status}；仅供参考，不能视为正式结论。</span>
+      {principal?.roles.includes('ADMIN') && shown.quality_gate?.passed_for_publish && <button onClick={() => publishPreview().catch(e => setError(String(e)))}>Publish</button>}
     </div>}
 
     {shown && <>
@@ -553,8 +578,8 @@ function App() {
         <div className="panelhead"><b>{shown.assets.find(a=>a.asset_id===selectedAsset)?.asset_name ?? selectedAsset} · 历史评分</b><button className="secondary" onClick={()=>setSelectedAsset(null)}>关闭</button></div>
         {history.length > 0 ? <HistoryChart points={history} /> : <p>暂无 Published 历史评分。</p>}
       </section>}
-      {events.length > 0 && <section className="eventpanel">
-        <div className="panelhead"><b>本次分析的重要事件</b><span>{events.length} 条</span></div>
+      {shown.published && events.length > 0 && <section className="eventpanel">
+        <div className="panelhead"><b>正式结果的重要事件</b><span>{events.length} 条</span></div>
         <div className="eventlist">{events.map(e => <div key={e.event_id}>
           <time>{new Date(e.published_at).toLocaleString()}</time>
           <strong>{e.canonical_title}</strong>

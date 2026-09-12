@@ -18,6 +18,13 @@ article p { font-size: 14px; line-height: 1.65; color: #444; }
 .risk { border-top:1px solid #eee; padding-top:10px; }
 .meta,.notice,.warning,.quality,.previewbar { margin-top: 20px; padding: 12px 14px; background: white; border: 1px solid #ddd; }
 .previewbar { display:flex; align-items:center; justify-content:space-between; border-color:#111; }
+.viewselector { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:20px; }
+.viewselector button { background:white; color:#111; border-color:#bbb; }
+.viewselector button.active { background:#111; color:white; border-color:#111; }
+.viewselector button.preview.active { background:#8a5100; border-color:#8a5100; }
+.viewselector button:disabled { opacity:.55; cursor:not-allowed; }
+.previewsummary { font-size:13px; color:#794500; }
+.previewbar { background:#fff4dc; border-color:#bd790e; gap:12px; line-height:1.5; }
 .warning { font-size: 13px; color: #666; line-height:1.7; }
 .quality { font-size:14px; }
 @media (max-width: 720px) { main{padding:18px} header{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions button{flex:1} }

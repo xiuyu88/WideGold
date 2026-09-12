@@ -170,9 +170,16 @@ class IndicatorCollectionService:
             # ThreadPoolExecutor workers start with a fresh context, which would drop the frozen
             # runtime-config snapshot installed by version_snapshot_scope and let a mid-run config
             # activation change what this analysis reads.
-            context = contextvars.copy_context()
             futures = {
-                pool.submit(context.run, self._collect_one, key, as_of, force_refresh): key
+                # A Context object cannot be entered by more than one thread at a time. Give
+                # every worker its own copy while preserving the frozen runtime-config scope.
+                pool.submit(
+                    contextvars.copy_context().run,
+                    self._collect_one,
+                    key,
+                    as_of,
+                    force_refresh,
+                ): key
                 for key in ordered
             }
             for future in as_completed(futures):
