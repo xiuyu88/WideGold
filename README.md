@@ -20,7 +20,7 @@ WideGold V1 将宏观、利率、汇率、资金、市场状态、新闻事件�
 
 ![Prefect Dashboard](docs/images/prefect-dashboard.png)
 
-> 截图展示的是一次已发布/已落库状态。实时数据源、运行时间和 Runtime Config 不同，实际状态可能不同。
+> 截图展示的是当前生产构建下的 Dashboard 双视图：正式 Published 与最新 Preview 分开展示，并明确标注预览质量状态。实时数据源、运行时间和 Runtime Config 不同，实际状态可能不同。
 
 ## 一、核心能力
 
