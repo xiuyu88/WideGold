@@ -5,6 +5,7 @@ from typing import Any
 
 from widegold.domain.enums import EventVerificationStatus, SourceTier
 from widegold.llm.service import LLMService
+from widegold.observability.logging import get_logger
 from widegold.schemas.events import (
     EventExtractionOutput,
     EventImpactAssessment,
@@ -14,6 +15,13 @@ from widegold.schemas.events import (
 )
 from widegold.settings.config import asset_config, factor_config
 
+logger = get_logger("widegold.event_intelligence")
+
+# An expert review costs the most expensive alias in the routing table. It is reserved for events
+# that are both material and contested; a weak event with a validation flag is downgraded to
+# PARTIALLY_VERIFIED instead, which is the conservative outcome anyway.
+EXPERT_REVIEW_MIN_STRENGTH = 3
+
 
 def _messages(system: str, payload: dict[str, Any]) -> list[dict[str, str]]:
     return [
@@ -22,12 +30,27 @@ def _messages(system: str, payload: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+def _skip(state: dict, reason: str) -> dict:
+    """Record why a cluster produced no event without treating it as a pipeline failure.
+
+    Most headlines in a daily discovery set are not market events. Ending the graph here is the
+    normal path, not an error, and it is what keeps LLM calls proportional to real events.
+    """
+    logger.info(
+        "Event cluster produced no structured event",
+        extra={"cluster_id": str(state["cluster"].cluster_id), "skip_reason": reason},
+    )
+    return {"skip_reason": reason, "final_events": []}
+
+
 def extract_event_llm(state: dict) -> dict:
     cluster = state["cluster"]
     result = LLMService().structured_call_sync(
         "extraction",
         _messages(
-            "你是金融事件抽取器。只抽取提供材料中的事实，不补充未知信息。输出必须符合JSON schema。",
+            "你是金融事件抽取器。只抽取提供材料中的事实，不补充未知信息。"
+            "如果材料只是行情播报、个股涨跌、广告或与宏观/政策/资金/黄金无关的内容，"
+            "必须把 event_detected 设为 false，其余字段留空。",
             {
                 "canonical_title": cluster.canonical_title,
                 "documents": [
@@ -83,13 +106,7 @@ def assess_event_llm(state: dict) -> dict:
 def validate_event(state: dict) -> dict:
     errors: list[str] = list(state.get("errors", []))
     cluster = state["cluster"]
-    extraction = state["extracted_event"]
-    mapping = state["factor_mapping"]
     impact = state["impact_assessment"]
-    if not extraction.event_detected:
-        errors.append("NO_EVENT")
-    if not mapping.mappings:
-        errors.append("NO_FACTOR_MAPPING")
     if cluster.documents and all(d.source_tier == SourceTier.D for d in cluster.documents):
         errors.append("UNVERIFIED_D_TIER_ONLY")
     if impact.implementation >= 0.9 and any("传闻" in d.title for d in cluster.documents):
@@ -100,12 +117,15 @@ def validate_event(state: dict) -> dict:
 def detect_conflict(state: dict) -> dict:
     errors = state.get("errors", [])
     impact = state["impact_assessment"]
+    material = impact.strength >= EXPERT_REVIEW_MIN_STRENGTH
     high_impact = impact.strength >= 4
     source_disagreement = len({d.source_tier.value for d in state["cluster"].documents}) > 2
-    required = bool(errors) or (high_impact and source_disagreement)
+    required = material and (bool(errors) or (high_impact and source_disagreement))
     return {
         "escalation_required": required,
-        "escalation_reason": ",".join(errors) if errors else ("HIGH_IMPACT_SOURCE_DISAGREEMENT" if required else None),
+        "escalation_reason": (
+            ",".join(errors) if errors else ("HIGH_IMPACT_SOURCE_DISAGREEMENT" if required else None)
+        ),
     }
 
 
@@ -129,16 +149,21 @@ def expert_review(state: dict) -> dict:
 
 
 def finalize_event_llm(state: dict) -> dict:
-    extraction = state["extracted_event"]
-    if not extraction.event_detected:
-        return {"final_events": []}
+    extraction = state.get("extracted_event")
+    if extraction is None or not extraction.event_detected:
+        return _skip(state, "NO_EVENT_DETECTED")
 
-    mapping = state["factor_mapping"]
-    impact = state["impact_assessment"]
+    mapping = state.get("factor_mapping")
+    impact = state.get("impact_assessment")
+    if mapping is None or not mapping.mappings or impact is None:
+        # An event with no factor mapping contributes nothing to any FactorState and therefore
+        # nothing to a score; carrying it forward would only add noise to the dashboard.
+        return _skip(state, "NO_FACTOR_MAPPING")
+
     review = state.get("expert_review")
     if review is not None:
         if not review.approved:
-            return {"final_events": []}
+            return _skip(state, "EXPERT_REVIEW_REJECTED")
         if review.mappings:
             mapping = mapping.model_copy(update={"mappings": review.mappings})
         if review.impact is not None:
@@ -173,7 +198,30 @@ def finalize_event_llm(state: dict) -> dict:
         reason_tags=[tag for m in mapping.mappings for tag in m.reason_tags],
         evidence_document_ids=[d.document_id for d in cluster.documents],
         model_execution_ids=[x.execution_id for x in state.get("llm_executions", [])],
-        graph_version="1.0.0",
-        prompt_version="1.0.0",
+        graph_version="1.1.0",
+        prompt_version="1.1.0",
     )
     return {"final_events": [event]}
+
+
+# --- Routing predicates -------------------------------------------------------------------
+# Shared by the LangGraph build and the dependency-free DirectEventGraph so both execution paths
+# can never diverge in how many LLM calls they spend.
+
+
+def route_after_extract(state: dict) -> str:
+    extraction = state.get("extracted_event")
+    if extraction is None or not extraction.event_detected:
+        return "finalize"
+    return "map_factors"
+
+
+def route_after_mapping(state: dict) -> str:
+    mapping = state.get("factor_mapping")
+    if mapping is None or not mapping.mappings:
+        return "finalize"
+    return "assess"
+
+
+def route_after_conflict(state: dict) -> str:
+    return "expert_review" if state.get("escalation_required") else "finalize"

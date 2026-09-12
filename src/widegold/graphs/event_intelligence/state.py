@@ -19,6 +19,7 @@ class EventGraphState(TypedDict, total=False):
     factor_mapping: FactorMappingOutput
     impact_assessment: EventImpactAssessment
     errors: list[str]
+    skip_reason: str
     escalation_required: bool
     escalation_reason: str | None
     expert_review: ExpertEventReview

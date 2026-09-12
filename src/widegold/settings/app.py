@@ -61,6 +61,16 @@ class Settings(BaseSettings):
     deepseek_api_key: str | None = Field(default=None, validation_alias="DEEPSEEK_API_KEY")
     deepseek_base_url: str = Field(default="https://api.deepseek.com", validation_alias="DEEPSEEK_BASE_URL")
     llm_max_output_tokens: int = Field(default=1200, validation_alias="WIDEGOLD_LLM_MAX_OUTPUT_TOKENS")
+    llm_schema_repair_attempts: int = Field(
+        default=1, validation_alias="WIDEGOLD_LLM_SCHEMA_REPAIR_ATTEMPTS"
+    )
+    llm_timeout_seconds: float = Field(default=90.0, validation_alias="WIDEGOLD_LLM_TIMEOUT_SECONDS")
+    llm_transient_retry_attempts: int = Field(
+        default=2, validation_alias="WIDEGOLD_LLM_TRANSIENT_RETRY_ATTEMPTS"
+    )
+    # Hard ceiling on LLM fan-out per analysis run.  This is an environment-level guard on purpose:
+    # a stale DB runtime config must not be able to silently restore an unbounded news set.
+    event_max_clusters: int = Field(default=15, validation_alias="WIDEGOLD_EVENT_MAX_CLUSTERS")
     gpt_compat_api_key: str | None = Field(default=None, validation_alias="GPT_COMPAT_API_KEY")
     gpt_compat_base_url: str = Field(default="https://ca.memofun.net/v1", validation_alias="GPT_COMPAT_BASE_URL")
     gpt_compat_model: str = Field(default="gpt-5.6-sol", validation_alias="GPT_COMPAT_MODEL")

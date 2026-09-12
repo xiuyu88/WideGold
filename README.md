@@ -267,6 +267,15 @@ docker compose logs -f --tail=200 api
 # 免费 External 验证
 python scripts/external_bridge_smoke.py
 
+# 运行时配置漂移检查（只读；YAML 版本 vs 数据库 ACTIVE 版本）
+docker compose exec api python scripts/sync_runtime_config.py --check
+
+# 把仓库 YAML 版本激活为运行时配置
+docker compose exec api python scripts/sync_runtime_config.py --activate-all
+
+# LLM 契约探针（每个 alias 一次极小真实调用）
+docker compose exec api python scripts/llm_probe.py
+
 # 基础 E2E（不触发 Live Analysis）
 .\scripts\docker-e2e.ps1
 

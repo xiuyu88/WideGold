@@ -29,6 +29,27 @@ from widegold.settings.config import current_version_snapshot
 from widegold.settings.runtime_config import activate_version_snapshot, reset_version_snapshot
 
 
+def _llm_failure_summary(executions) -> dict:
+    """Aggregate failed model executions so the failure cause is visible in the run trace.
+
+    ``events=0`` alone cannot distinguish a quiet news day from a broken model contract.  An
+    alias/error_code histogram plus one sample message makes that distinction immediate, without
+    requiring a SQL session against intel.llm_runs.
+    """
+    failures = [item for item in executions if item.status != "SUCCESS"]
+    if not failures:
+        return {}
+    histogram = Counter(
+        f"{item.model_alias}/{item.resolved_model}:{item.error_code or 'UNKNOWN'}"
+        for item in failures
+    )
+    return {
+        "failed_calls": len(failures),
+        "by_alias_error": dict(histogram.most_common(10)),
+        "sample_error": (failures[0].error_message or "")[:500],
+    }
+
+
 def _cluster_one_document_each(documents):
     return [
         NewsCluster(
@@ -237,6 +258,11 @@ def _run_analysis_impl(
                             "deduplicated": raw_event_count - len(events),
                             "llm_calls": len(llm_executions),
                             "failed_clusters": failed_event_clusters,
+                            **(
+                                {"llm_failures": _llm_failure_summary(llm_executions)}
+                                if failed_event_clusters
+                                else {}
+                            ),
                         },
                     )
                 else:
@@ -264,6 +290,11 @@ def _run_analysis_impl(
                             "llm_calls": len(llm_executions),
                             "event_processing_complete": event_processing_complete,
                             "warnings": event_processing_warnings[:20],
+                            **(
+                                {"llm_failures": _llm_failure_summary(llm_executions)}
+                                if not event_processing_complete
+                                else {}
+                            ),
                         },
                     )
 

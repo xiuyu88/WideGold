@@ -6,6 +6,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from widegold.domain.enums import SourceTier
 from widegold.schemas.events import NewsCluster, NewsDocument
+from widegold.settings.app import get_settings
 from widegold.settings.config import news_config
 
 _PUNCT_RE = re.compile(r"[\s\u3000，。；：、！？,.!?;:'\"“”‘’（）()【】\[\]<>《》—_\-/]+")
@@ -60,9 +61,10 @@ def cluster_news_documents(documents: list[NewsDocument]) -> list[NewsCluster]:
     """
     if not documents:
         return []
-    cfg = news_config().get("clustering", {})
+    full_cfg = news_config()
+    cfg = full_cfg.get("clustering", {})
     if not cfg.get("enabled", True):
-        return [
+        return _apply_cluster_budget([
             NewsCluster(
                 cluster_id=_cluster_id([doc]),
                 canonical_title=doc.title,
@@ -71,7 +73,7 @@ def cluster_news_documents(documents: list[NewsDocument]) -> list[NewsCluster]:
                 last_seen_at=doc.published_at,
             )
             for doc in documents
-        ]
+        ], full_cfg)
 
     threshold = float(cfg.get("similarity_threshold", 0.62))
     max_gap_seconds = float(cfg.get("max_time_gap_hours", 18)) * 3600.0
@@ -106,4 +108,34 @@ def cluster_news_documents(documents: list[NewsDocument]) -> list[NewsCluster]:
             last_seen_at=max(d.published_at for d in group),
         ))
     clusters.sort(key=lambda c: (c.first_seen_at, c.canonical_title))
-    return clusters
+    return _apply_cluster_budget(clusters, full_cfg)
+
+
+def _cluster_priority(cluster: NewsCluster) -> tuple:
+    """Rank clusters by expected event value before spending LLM calls on them."""
+    canonical = _canonical_document(cluster.documents)
+    return (
+        len(cluster.documents),                 # corroborated by more sources
+        _TIER_RANK.get(canonical.source_tier, 0),
+        cluster.last_seen_at,                   # fresher first
+    )
+
+
+def _apply_cluster_budget(clusters: list[NewsCluster], cfg: dict) -> list[NewsCluster]:
+    """Cap how many clusters may reach the Event Intelligence graph.
+
+    Every surviving cluster costs at least one LLM call per graph node, so an uncapped news set
+    turns directly into an uncapped bill.  ``news.yaml:max_clusters`` is the tuning knob; the
+    environment setting is the ceiling that still applies when DB runtime config is stale.
+    """
+    ceiling = int(get_settings().event_max_clusters or 0)
+    configured = int(cfg.get("max_clusters") or 0)
+    limits = [value for value in (ceiling, configured) if value > 0]
+    if not limits:
+        return clusters
+    budget = min(limits)
+    if len(clusters) <= budget:
+        return clusters
+    kept = sorted(clusters, key=_cluster_priority, reverse=True)[:budget]
+    kept.sort(key=lambda c: (c.first_seen_at, c.canonical_title))
+    return kept

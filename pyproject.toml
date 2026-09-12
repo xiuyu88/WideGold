@@ -1,6 +1,6 @@
 [project]
 name = "widegold-agent"
-version = "1.0.0"
+version = "1.1.0"
 description = "WideGold V1: production-shaped broad-index + RMB gold factor intelligence platform"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

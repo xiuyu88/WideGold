@@ -4,7 +4,7 @@ from apps.api.routers import admin, assets, auth, dashboard, events, ingest, moc
 from widegold.settings.app import get_settings
 from widegold.services.runtime_health import runtime_readiness
 
-app = FastAPI(title="WideGold API", version="1.0.0")
+app = FastAPI(title="WideGold API", version="1.1.0")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(mock.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
@@ -22,7 +22,7 @@ def health():
     return {
         "status": "ok",
         "service": "widegold-api",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "persistence": settings.persistence,
         "orchestration": settings.orchestration_mode,
         "data_mode": settings.data_mode,
