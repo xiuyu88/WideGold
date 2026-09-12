@@ -1,5 +1,28 @@
 # 更新日志
 
+## V1.2 — 全链路代码复查修复 — 2026-09-12
+
+- **黄金置信度惩罚从不生效**：权益冲突规则此前对所有资产无差别触发，`confidence.py` 用
+  `asset_id != "RMB_GOLD"` 做补偿，结果把黄金自己的两条惩罚一起丢掉，而 trace 仍显示扣分。
+  现在规则本身按资产族限定，惩罚不再被吞掉。
+- **ResilientExecutor 超时对同步 Provider 无效**：同步调用在事件循环线程里执行，
+  `wait_for` 无法介入。改为在专用线程池执行并显式复制上下文，`timeout_seconds` 真正生效。
+- sensitivity 符号处理统一为按绝对值判断相关性（scoring / quality / confidence 此前三处不一致）。
+- `degraded_factor_coverage` 的 0.72 阈值改为读取 `resilience.yaml`，不再硬编码。
+- `latest_published` 改为按分析日期排序；`POST /runs/{id}/publish` 对回溯发布返回 409，
+  需显式 `allow_backdated=true`。
+- `save_snapshot` 重复保存同一 run 时先清理旧的 asset_scores / score_contributions。
+- `ContextVar` 在 indicator 并发采集与 LLM 同步桥接处显式跨线程传递，冻结配置快照不再丢失。
+- `circuit_breakers` 全局状态加锁。
+- 每个资产的 horizon 结果只计算一次（此前算分与算贡献各跑一遍，共 6 次），数值不变。
+- `latest_factor_states` 增加 4320 小时扫描下界。
+- `resilience.yaml` → 1.3.0：`require_all_assets_scoreable` 改为 `true`，
+  Quality Gate 不再允许"一个资产数据够就放行全部七个资产"。
+- 新增 6 个回归测试（`tests/test_engine_consistency.py`）。
+
+> 升级提示：`resilience.yaml` 版本变更，需执行
+> `docker compose exec api python scripts/sync_runtime_config.py --activate-all` 后才生效。
+
 ## V1.1 — Event Intelligence P0 修复 — 2026-09-12
 
 修复"78 次 LLM 调用产出 0 个事件"的生产缺陷，并按生产标准加固整条 LLM 调用链。

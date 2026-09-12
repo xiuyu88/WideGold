@@ -125,14 +125,29 @@ def _direction_for_horizon(
     return direction, rows
 
 
-def _composite_contributions(
+def _horizon_results(
     asset_id: str,
     states: list[FactorState],
     effects: RuleEffects,
+) -> dict[str, tuple[float, list[dict]]]:
+    """Compute each horizon exactly once.
+
+    Directions and contributions are derived from the same rows, and every call re-reads the
+    weights/factor configs and re-applies group caps. Computing them once per asset keeps the
+    numbers identical while removing a 2x duplicate pass over every scoring run.
+    """
+    return {
+        horizon: _direction_for_horizon(asset_id, states, horizon, effects)
+        for horizon in HORIZON_BLEND
+    }
+
+
+def _composite_contributions(
+    horizon_results: dict[str, tuple[float, list[dict]]],
 ) -> list[FactorContribution]:
     aggregate: dict[str, dict] = {}
     for horizon, blend in HORIZON_BLEND.items():
-        _, rows = _direction_for_horizon(asset_id, states, horizon, effects)
+        _, rows = horizon_results[horizon]
         for row in rows:
             slot = aggregate.setdefault(row["factor_id"], {
                 "factor_id": row["factor_id"],
@@ -177,10 +192,13 @@ def calculate_asset_score(
     confidence_factory,
     versions: VersionSnapshot | None = None,
 ) -> AssetScore:
+    if not states:
+        raise ValueError("calculate_asset_score requires at least one resolved factor state")
     assets = _asset_metadata()
-    t_dir, _ = _direction_for_horizon(asset_id, states, Horizon.TACTICAL.value, effects)
-    s_dir, _ = _direction_for_horizon(asset_id, states, Horizon.SWING.value, effects)
-    st_dir, _ = _direction_for_horizon(asset_id, states, Horizon.STRATEGIC.value, effects)
+    horizon_results = _horizon_results(asset_id, states, effects)
+    t_dir = horizon_results[Horizon.TACTICAL.value][0]
+    s_dir = horizon_results[Horizon.SWING.value][0]
+    st_dir = horizon_results[Horizon.STRATEGIC.value][0]
 
     t_score = _clip(50 + t_dir / 2, 0, 100)
     s_score = _clip(50 + s_dir / 2, 0, 100)
@@ -193,7 +211,7 @@ def calculate_asset_score(
     }.items())
     final_score = _clip(50 + direction / 2, 0, 100)
 
-    contributions = _composite_contributions(asset_id, states, effects)
+    contributions = _composite_contributions(horizon_results)
     positives = sorted((c for c in contributions if c.after_group_cap > 0), key=lambda c: c.after_group_cap, reverse=True)
     negatives = sorted((c for c in contributions if c.after_group_cap < 0), key=lambda c: c.after_group_cap)
 

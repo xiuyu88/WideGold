@@ -114,6 +114,7 @@ class LLMService:
         instead of failing the whole cluster.
         """
         import asyncio
+        import contextvars
         from concurrent.futures import ThreadPoolExecutor
 
         try:
@@ -121,7 +122,10 @@ class LLMService:
         except RuntimeError:
             return asyncio.run(self.structured_call(task_type, messages, schema))
 
+        # The worker thread must inherit the frozen runtime-config snapshot of this analysis run.
+        context = contextvars.copy_context()
         with ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(
-                lambda: asyncio.run(self.structured_call(task_type, messages, schema))
+                context.run,
+                lambda: asyncio.run(self.structured_call(task_type, messages, schema)),
             ).result()

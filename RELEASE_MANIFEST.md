@@ -1,8 +1,8 @@
 # WideGold V1 发布清单
 
-- 项目版本：`1.1.0`
+- 项目版本：`1.2.0`
 - 整理日期：`2026-09-12`
-- 本次变更：Event Intelligence P0 修复（详见 `docs/10_event_intelligence_p0_fix.md`）
+- 本次变更：Event Intelligence P0 修复 + 全链路代码复查修复（详见 `docs/10_event_intelligence_p0_fix.md`）
 - External Bridge Build：`2026.09.11-free-sources-v3.1`
 - 逻辑因子：27
 - 物理 FactorState 目标：42

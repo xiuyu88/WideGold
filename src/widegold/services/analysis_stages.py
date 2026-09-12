@@ -15,7 +15,7 @@ from widegold.schemas.events import StructuredEvent
 from widegold.schemas.factors import FactorState
 from widegold.schemas.resilience import FactorInput, FactorResolutionSummary, QualityGateResult
 from widegold.schemas.scores import AssetExplanation, AssetScore
-from widegold.settings.config import asset_config
+from widegold.settings.config import asset_config, resilience_config
 
 
 @dataclass(frozen=True)
@@ -52,6 +52,11 @@ def resolve_factor_stage(
 
 def score_stage(*, factor_states: list[FactorState], versions: VersionSnapshot) -> ScoringStageResult:
     quality = run_quality_gate(factor_states)
+    # The degraded-coverage flag must track the same floor the Quality Gate publishes against;
+    # duplicating the number in code silently decouples the badge from the gate.
+    degraded_floor = float(
+        resilience_config()["quality_gate"]["minimum_publish_weighted_coverage"]
+    )
     coverage_by_asset = {item.asset_id: item for item in quality.assets}
     scores: list[AssetScore] = []
     risk_flags_by_asset: dict[str, list[str]] = {}
@@ -70,7 +75,7 @@ def score_stage(*, factor_states: list[FactorState], versions: VersionSnapshot) 
         coverage = coverage_by_asset[asset_id]
         if not coverage.scoreable:
             score.risk_flags.append("insufficient_factor_coverage")
-        elif coverage.weighted_coverage < 0.72:
+        elif coverage.weighted_coverage < degraded_floor:
             score.risk_flags.append("degraded_factor_coverage")
         scores.append(score)
         if effects.risk_flags:

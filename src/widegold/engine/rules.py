@@ -31,11 +31,14 @@ def evaluate_conflicts(states: list[FactorState], asset_id: str | None = None) -
         current = chosen.get(item.factor_id)
         if current is None or (asset_id is not None and item.asset_id == asset_id and current.asset_id is None):
             chosen[item.factor_id] = item
-    if (
+    if asset_id != "RMB_GOLD" and (
         values.get("EQ01_CN_FUNDING_LIQUIDITY", 0) > 40
         and values.get("EQ04_CN_GROWTH_MOMENTUM", 0) < -40
         and values.get("EQ06_INDEX_EARNINGS", 0) < -20
     ):
+        # Equity-only conflict. Gold does not carry EQ01/EQ04/EQ06 sensitivity, so applying this
+        # rule to RMB_GOLD would attach an equity risk flag and an equity confidence penalty to an
+        # asset the rule says nothing about.
         effects.contribution_multipliers["EQ01_CN_FUNDING_LIQUIDITY"] = 0.60
         effects.confidence_penalty += 8.0
         effects.risk_flags.append("liquidity_without_growth_confirmation")

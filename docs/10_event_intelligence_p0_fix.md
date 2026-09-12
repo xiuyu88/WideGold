@@ -207,3 +207,69 @@ order by 6 desc;
 - `CN_FOREIGN_ACTIVITY` 免费公开源的天然限制。
 - `CN_INDEX_EARNINGS_REV` 需要 7～30 天快照积累。
 - Point-in-Time Replay / Walk-forward 校准。
+
+
+---
+
+## 5. V1.1 代码复查附带修复
+
+P0 修完后对全链路做了一次复查，以下问题一并处理。
+
+### 5.1 确定的 bug
+
+**RMB_GOLD 的 confidence 惩罚被算出来但从不生效。**
+`engine/rules.py` 为黄金写了两条惩罚（CFTC 多头拥挤、央行购金仅代理数据），但
+`engine/confidence.py` 的 `asset_id != "RMB_GOLD"` 把它们全部丢弃，而
+`analysis_stages.py` 仍把惩罚写进 trace 的 `confidence_penalty_by_asset`——
+前端显示扣分、实际一分没扣。
+
+真正的问题在于权益冲突规则（EQ01/EQ04/EQ06）此前对所有资产无差别触发，那个排除条件
+是为了不让权益冲突污染黄金。现在把规则本身限定为非黄金资产，`confidence.py` 里的
+资产例外随之删除，每一条到达那里的惩罚都会被应用。
+
+**ResilientExecutor 的 `timeout_seconds` 对同步 Provider 完全无效。**
+`asyncio.wait_for` 包住的是在事件循环线程里同步执行的函数，循环被堵死，超时没有机会触发。
+akshare 本身不暴露超时控制，因此一个卡住的公网请求会占死一个 indicator worker
+（总共只有 4 个）直到 TCP 层放弃。这与 P4「Manual Preview 超时但 Prefect 最终完成」吻合。
+
+修复方式是把同步 capability 放到**专用线程池**执行：
+- 用专用池而不是事件循环的默认 executor，因为 `asyncio.run` 在收尾时会等待默认 executor，
+  那样超时刚放弃的调用又会把收尾阻塞回去；
+- 显式 `contextvars.copy_context()`，保证冻结的 Runtime Config 快照能跟着过线程边界。
+
+### 5.2 语义不一致
+
+- **sensitivity 符号处理三处不一致**：scoring 用有符号值、quality 用 `abs()`、
+  confidence 用 `> 0` 过滤。当前 `weights.yaml` 全为正数所以没爆，但一旦写入负 sensitivity，
+  confidence 会静默丢掉那批因子而 coverage 照常计入。统一为 `abs(...) > 0`。
+- **publish 阈值 0.72 硬编码**在 `analysis_stages.py`，与 `resilience.yaml` 的
+  `minimum_publish_weighted_coverage` 重复。改为读配置。
+- **`latest_published` 按发布时间排序**，而 `publish()` 又不会把上一个 PUBLISHED 降级，
+  于是手动发布一个 replay 或旧 preview 会把首页覆盖成历史结果。改为按分析日期排序，
+  发布时间只用于同日内的 tie-break；同时 `POST /runs/{id}/publish` 在检测到回溯发布时返回
+  409，必须显式传 `allow_backdated=true` 才允许。
+- **`save_snapshot` 重复保存同一 run 会累积重复的 asset_scores / score_contributions 行**，
+  改为先删除旧行再写入。
+
+### 5.3 并发与性能
+
+- `ThreadPoolExecutor` 的工作线程拿不到调用方的 `ContextVar`，indicator 并发采集里
+  冻结的 Runtime Config 快照会丢失。当前 Provider 恰好不在线程里读配置所以没爆，
+  现已在 indicator collection 和 LLM 同步桥接处显式复制上下文。
+- `circuit_breakers` 全局字典在多线程下无锁读改写，已加锁。
+- `_direction_for_horizon` 每个资产被调用 6 次（3 次算分 + 3 次算贡献），
+  现在每个 horizon 只算一次并复用，7 个资产少掉 21 次重复计算，数值完全不变。
+- `latest_factor_states` 全表扫描无时间下界，现加上 4320 小时窗口
+  （最大 `max_stale_hours` 为 quarterly 3600h，更早的候选在 factor_resolution 里必然被丢弃）。
+
+### 5.4 质量门策略变更
+
+`resilience.yaml` 的 `require_all_assets_scoreable` 由 `false` 改为 `true`。
+
+原来的 `any()` 语义是：7 个资产里只要有 1 个数据够，整个 Preview 就通过，
+另外 6 个照样出分、照样进 Dashboard，只多一个 `insufficient_factor_coverage` 标记。
+对投资研判输出而言这与「Quality Gate 是保护机制」的直觉相反。
+
+改为 `all()` 后，任一资产低于 `minimum_preview_weighted_coverage`（0.55）时整个 Run
+会落到 `QUALITY_FAILED`，不会产生可发布的快照。`resilience.yaml` 版本随之升到 1.3.0，
+**升级后需要执行 `sync_runtime_config.py --activate-all` 才会生效**。

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 from uuid import UUID
 
-from sqlalchemy import desc, select, text
+from sqlalchemy import delete, desc, select, text
 
 from widegold.db.models import (
     AnalysisRunModel,
@@ -42,6 +42,11 @@ from widegold.schemas.research import FactorResearchCandidate, ResearchEvidence,
 from widegold.schemas.scores import DashboardSnapshot
 from widegold.schemas.trace import RunTraceEvent
 from widegold.schemas.replay import CalibrationResult
+
+
+# Widest max_stale_hours in factor_runtime (quarterly = 3600h) plus headroom. Anything older can
+# never survive the staleness check in factor_resolution, so it does not belong in the scan.
+_LKG_SCAN_LOOKBACK_HOURS = 4320.0
 
 
 class PostgresRepository:
@@ -943,11 +948,24 @@ class PostgresRepository:
                 for row in rows
             ]
 
-    def latest_factor_states(self, before: datetime | None = None) -> dict[str, FactorState]:
+    def latest_factor_states(
+        self, before: datetime | None = None, *, lookback_hours: float | None = None
+    ) -> dict[str, FactorState]:
+        """Load the most recent state per (factor, asset) for last-known-good resolution.
+
+        A lower time bound matters: factor_resolution discards any candidate older than the
+        factor's max_stale_hours anyway, so scanning the full history only grows the query as
+        replay backfills accumulate rows.
+        """
+        floor = lookback_hours if lookback_hours is not None else _LKG_SCAN_LOOKBACK_HOURS
         with db_session() as session:
             stmt = select(FactorStateModel)
             if before is not None:
                 stmt = stmt.where(FactorStateModel.as_of_ts < before)
+                if floor and floor > 0:
+                    stmt = stmt.where(
+                        FactorStateModel.as_of_ts >= before - timedelta(hours=float(floor))
+                    )
             stmt = stmt.order_by(FactorStateModel.factor_id, FactorStateModel.asset_id, desc(FactorStateModel.as_of_ts))
             rows = session.execute(stmt).scalars().all()
             latest: dict[str, FactorState] = {}
@@ -1068,6 +1086,26 @@ class PostgresRepository:
                 existing.snapshot_json = payload
                 existing.published = snapshot.published
                 existing.published_at = now if snapshot.published else existing.published_at
+                # Re-saving the same run replaces its scores; without this the run accumulates a
+                # second full set of asset_scores/contributions and every downstream aggregate
+                # over the table double counts it.
+                stale_ids = session.execute(
+                    select(AssetScoreModel.asset_score_id).where(
+                        AssetScoreModel.analysis_run_id == snapshot.analysis_run_id
+                    )
+                ).scalars().all()
+                if stale_ids:
+                    session.execute(
+                        delete(ScoreContributionModel).where(
+                            ScoreContributionModel.asset_score_id.in_(stale_ids)
+                        )
+                    )
+                    session.execute(
+                        delete(AssetScoreModel).where(
+                            AssetScoreModel.analysis_run_id == snapshot.analysis_run_id
+                        )
+                    )
+                session.flush()
 
             for score in snapshot.assets:
                 session.add(AssetScoreModel(
@@ -1108,15 +1146,44 @@ class PostgresRepository:
             return DashboardSnapshot.model_validate(row.snapshot_json) if row else None
 
     def latest_published(self) -> DashboardSnapshot | None:
+        """Return the published snapshot for the most recent *analysis date*.
+
+        Ordering by publication time alone lets a manually published replay or an older preview
+        take over the dashboard, because publishing does not demote the previous PUBLISHED row.
+        Analysis date is the business ordering; publication time only breaks ties between two
+        runs of the same day.
+        """
         with db_session() as session:
             stmt = (
                 select(AnalysisSnapshotModel)
+                .join(
+                    AnalysisRunModel,
+                    AnalysisRunModel.analysis_run_id == AnalysisSnapshotModel.analysis_run_id,
+                )
                 .where(AnalysisSnapshotModel.published.is_(True))
-                .order_by(desc(AnalysisSnapshotModel.published_at), desc(AnalysisSnapshotModel.created_at))
+                .order_by(
+                    desc(AnalysisRunModel.analysis_date),
+                    desc(AnalysisSnapshotModel.published_at),
+                    desc(AnalysisSnapshotModel.created_at),
+                )
                 .limit(1)
             )
-            row = session.execute(stmt).scalar_one_or_none()
+            row = session.execute(stmt).scalars().first()
             return DashboardSnapshot.model_validate(row.snapshot_json) if row else None
+
+    def latest_published_analysis_date(self) -> date | None:
+        with db_session() as session:
+            stmt = (
+                select(AnalysisRunModel.analysis_date)
+                .join(
+                    AnalysisSnapshotModel,
+                    AnalysisRunModel.analysis_run_id == AnalysisSnapshotModel.analysis_run_id,
+                )
+                .where(AnalysisSnapshotModel.published.is_(True))
+                .order_by(desc(AnalysisRunModel.analysis_date))
+                .limit(1)
+            )
+            return session.execute(stmt).scalars().first()
 
     def publish(self, run_id: UUID) -> DashboardSnapshot | None:
         with db_session() as session:

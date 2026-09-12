@@ -22,6 +22,8 @@ class InMemorySnapshotRepository:
         self._lock = RLock()
         self._items: dict[UUID, DashboardSnapshot] = {}
         self._latest: UUID | None = None
+        self._publish_order: dict[UUID, int] = {}
+        self._publish_seq: int = 0
         self._states: dict[UUID, list[FactorState]] = {}
         self._runs: dict[UUID, dict] = {}
         self._run_events: dict[UUID, list[RunTraceEvent]] = {}
@@ -327,7 +329,9 @@ class InMemorySnapshotRepository:
     def get_factor_states(self, run_id: UUID) -> list[FactorState]:
         return list(self._states.get(run_id, []))
 
-    def latest_factor_states(self, before: datetime | None = None) -> dict[str, FactorState]:
+    def latest_factor_states(
+        self, before: datetime | None = None, *, lookback_hours: float | None = None
+    ) -> dict[str, FactorState]:
         candidates: list[FactorState] = []
         for states in self._states.values():
             candidates.extend(s for s in states if before is None or s.as_of_ts < before)
@@ -414,6 +418,8 @@ class InMemorySnapshotRepository:
         with self._lock:
             self._items[snapshot.analysis_run_id] = snapshot
             if snapshot.published:
+                self._publish_seq += 1
+                self._publish_order[snapshot.analysis_run_id] = self._publish_seq
                 self._latest = snapshot.analysis_run_id
 
     def get_snapshot(self, run_id: UUID) -> DashboardSnapshot | None:
@@ -423,17 +429,37 @@ class InMemorySnapshotRepository:
         return self._items.get(run_id)
 
     def latest_published(self) -> DashboardSnapshot | None:
-        if self._latest is None:
+        # Mirrors the PostgreSQL repository: business ordering is the analysis date, and the
+        # publication sequence only breaks ties within one day.
+        published = [item for item in self._items.values() if item.published]
+        if not published:
             return None
-        return self._items[self._latest]
+        return max(
+            published,
+            key=lambda item: (
+                item.analysis_date or "",
+                self._publish_order.get(item.analysis_run_id, 0),
+            ),
+        )
+
+    def latest_published_analysis_date(self):
+        snapshot = self.latest_published()
+        if snapshot is None or not snapshot.analysis_date:
+            return None
+        from datetime import date as _date
+
+        return _date.fromisoformat(str(snapshot.analysis_date))
 
     def publish(self, run_id: UUID) -> DashboardSnapshot | None:
         snapshot = self._items.get(run_id)
         if snapshot is None:
             return None
         updated = snapshot.model_copy(update={"published": True, "status": AnalysisStatus.PUBLISHED.value})
-        self._items[run_id] = updated
-        self._latest = run_id
+        with self._lock:
+            self._items[run_id] = updated
+            self._publish_seq += 1
+            self._publish_order[run_id] = self._publish_seq
+            self._latest = run_id
         self.update_run(run_id, AnalysisStatus.PUBLISHED)
         return updated
 
@@ -444,6 +470,8 @@ snapshot_repository = InMemorySnapshotRepository()
 def reset_memory_repository() -> None:
     snapshot_repository._items.clear()
     snapshot_repository._latest = None
+    snapshot_repository._publish_order.clear()
+    snapshot_repository._publish_seq = 0
     snapshot_repository._states.clear()
     snapshot_repository._runs.clear()
     snapshot_repository._run_events.clear()

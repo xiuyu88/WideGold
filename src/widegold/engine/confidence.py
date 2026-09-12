@@ -23,7 +23,10 @@ def calculate_confidence(
         current = state_map.get(s.factor_id)
         if current is None or (s.asset_id == asset_id and current.asset_id is None):
             state_map[s.factor_id] = s
-    relevant = [c for c in contributions if c.sensitivity > 0]
+    # Sensitivity is signed in the scoring engine; relevance is about magnitude. Filtering on
+    # a positive sign would silently drop every negatively-sensitive factor from confidence
+    # while Quality Gate coverage still counted it.
+    relevant = [c for c in contributions if abs(c.sensitivity) > 0]
     denom = sum(abs(c.sensitivity) for c in relevant) or 1.0
     source_quality = 100.0 * sum(
         abs(c.sensitivity) * state_map[c.factor_id].reliability * state_map[c.factor_id].coverage
@@ -43,7 +46,10 @@ def calculate_confidence(
     penalties: list[str] = []
     caps: list[str] = []
 
-    if effects.confidence_penalty and asset_id != "RMB_GOLD":
+    # Conflict rules are already scoped per asset in ``evaluate_conflicts``; whatever penalty
+    # reaches here belongs to this asset and must be applied, otherwise the trace reports a
+    # penalty that the published confidence never received.
+    if effects.confidence_penalty:
         raw -= effects.confidence_penalty
         penalties.append(f"conflict_penalty:{effects.confidence_penalty:.0f}")
 

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import inspect
+import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from threading import Lock
 from typing import Any, Awaitable, Callable
 
 from widegold.domain.enums import DataStatus
@@ -22,32 +26,63 @@ class CircuitState:
 
 @dataclass
 class CircuitBreakerRegistry:
+    """Process-wide breaker state.
+
+    Indicator collection fans out over a thread pool, so every method here is a read-modify-write
+    under concurrency.  A single lock keeps the failure counters exact; contention is irrelevant
+    because the critical sections are a few dict operations.
+    """
+
     states: dict[str, CircuitState] = field(default_factory=dict)
+    _lock: Lock = field(default_factory=Lock, repr=False)
 
     def allow(self, key: str, failure_threshold: int, cooldown_seconds: float) -> bool:
-        state = self.states.setdefault(key, CircuitState())
-        if state.failures < failure_threshold:
-            return True
-        if state.opened_at_monotonic is None:
-            state.opened_at_monotonic = time.monotonic()
+        with self._lock:
+            state = self.states.setdefault(key, CircuitState())
+            if state.failures < failure_threshold:
+                return True
+            if state.opened_at_monotonic is None:
+                state.opened_at_monotonic = time.monotonic()
+                return False
+            if time.monotonic() - state.opened_at_monotonic >= cooldown_seconds:
+                state.failures = 0
+                state.opened_at_monotonic = None
+                return True
             return False
-        if time.monotonic() - state.opened_at_monotonic >= cooldown_seconds:
-            state.failures = 0
-            state.opened_at_monotonic = None
-            return True
-        return False
 
     def success(self, key: str) -> None:
-        self.states[key] = CircuitState()
+        with self._lock:
+            self.states[key] = CircuitState()
 
     def failure(self, key: str, failure_threshold: int) -> None:
-        state = self.states.setdefault(key, CircuitState())
-        state.failures += 1
-        if state.failures >= failure_threshold and state.opened_at_monotonic is None:
-            state.opened_at_monotonic = time.monotonic()
+        with self._lock:
+            state = self.states.setdefault(key, CircuitState())
+            state.failures += 1
+            if state.failures >= failure_threshold and state.opened_at_monotonic is None:
+                state.opened_at_monotonic = time.monotonic()
 
 
 circuit_breakers = CircuitBreakerRegistry()
+
+_POOL_LOCK = Lock()
+_CAPABILITY_POOL: ThreadPoolExecutor | None = None
+
+
+def _capability_pool() -> ThreadPoolExecutor:
+    """Shared pool for blocking capability calls.
+
+    Deliberately long-lived and never shut down during a process's life: a call abandoned by the
+    timeout keeps its thread until the underlying socket gives up, and that must not delay the
+    analysis that already moved on.
+    """
+    global _CAPABILITY_POOL
+    with _POOL_LOCK:
+        if _CAPABILITY_POOL is None:
+            size = int(os.getenv("WIDEGOLD_CAPABILITY_POOL_SIZE", "16"))
+            _CAPABILITY_POOL = ThreadPoolExecutor(
+                max_workers=max(4, size), thread_name_prefix="widegold-capability"
+            )
+        return _CAPABILITY_POOL
 
 
 class ResilientExecutor:
@@ -66,9 +101,24 @@ class ResilientExecutor:
         self.cooldown = float(breaker["cooldown_seconds"])
 
     async def _invoke(self, func: CallableCapability) -> Any:
-        value = func()
+        """Run one capability so that the configured timeout can actually fire.
+
+        Most providers here are blocking (akshare, requests/httpx sync clients).  Calling them
+        directly on the event loop makes ``asyncio.wait_for`` decorative: the loop is blocked
+        until the provider returns on its own, so ``timeout_seconds`` never applies and one hung
+        public-internet call can stall a whole indicator worker.  Running the sync call on a
+        worker thread lets the await be cancelled on time.  The context is copied explicitly so the
+        frozen runtime-config snapshot survives the hop, and a dedicated pool is used instead of
+        the loop's default executor because ``asyncio.run`` would otherwise block at teardown
+        waiting for exactly the hung call the timeout just abandoned.
+        """
+        if inspect.iscoroutinefunction(func):
+            return await func()
+        loop = asyncio.get_running_loop()
+        context = contextvars.copy_context()
+        value = await loop.run_in_executor(_capability_pool(), context.run, func)
         if inspect.isawaitable(value):
-            return await asyncio.wait_for(value, timeout=self.timeout)
+            return await value
         return value
 
     async def call(

@@ -182,7 +182,11 @@ async def stream_run_trace(run_id: UUID, after_seq: int = Query(default=0, ge=0)
 
 
 @router.post("/runs/{run_id}/publish")
-def publish_run(run_id: UUID, user: Principal = Depends(admin_user)):
+def publish_run(
+    run_id: UUID,
+    allow_backdated: bool = Query(default=False),
+    user: Principal = Depends(admin_user),
+):
     repo = repository()
     snapshot = repo.get_snapshot(run_id)
     if snapshot is None:
@@ -191,6 +195,22 @@ def publish_run(run_id: UUID, user: Principal = Depends(admin_user)):
         raise HTTPException(status_code=409, detail="Run is not publishable")
     if not snapshot.quality_gate.get("passed_for_publish", False):
         raise HTTPException(status_code=409, detail="Quality gate does not allow publication")
+    # Publishing a replay or an older preview would otherwise silently replace the dashboard with
+    # a stale analysis. It stays possible, but only as an explicit decision.
+    current_date = getattr(repo, "latest_published_analysis_date", lambda: None)()
+    if (
+        not allow_backdated
+        and current_date is not None
+        and snapshot.analysis_date
+        and str(snapshot.analysis_date) < str(current_date)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Run analysis date {snapshot.analysis_date} is older than the currently published "
+                f"{current_date}; pass allow_backdated=true to publish it deliberately."
+            ),
+        )
     published = repo.publish(run_id)
     if published is not None:
         set_current_snapshot(published)

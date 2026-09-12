@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -166,8 +167,13 @@ class IndicatorCollectionService:
 
         workers = min(self.max_workers, len(ordered))
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="widegold-indicator") as pool:
+            # ThreadPoolExecutor workers start with a fresh context, which would drop the frozen
+            # runtime-config snapshot installed by version_snapshot_scope and let a mid-run config
+            # activation change what this analysis reads.
+            context = contextvars.copy_context()
             futures = {
-                pool.submit(self._collect_one, key, as_of, force_refresh): key for key in ordered
+                pool.submit(context.run, self._collect_one, key, as_of, force_refresh): key
+                for key in ordered
             }
             for future in as_completed(futures):
                 key = futures[future]
