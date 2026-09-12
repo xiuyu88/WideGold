@@ -273,3 +273,69 @@ akshare 本身不暴露超时控制，因此一个卡住的公网请求会占死
 改为 `all()` 后，任一资产低于 `minimum_preview_weighted_coverage`（0.55）时整个 Run
 会落到 `QUALITY_FAILED`，不会产生可发布的快照。`resilience.yaml` 版本随之升到 1.3.0，
 **升级后需要执行 `sync_runtime_config.py --activate-all` 才会生效**。
+
+
+---
+
+## 6. V1.3 细节复查修复
+
+第三轮复查覆盖 API 路由、仓储层、外部 Bridge、指标特征与分发链路，以下问题一并处理。
+
+### 6.1 Point-in-Time 历史被静默截断（影响最大）
+
+`PostgresRepository.get_indicator_history` 先 `LIMIT`、后按 `observation_date` 去重
+revision vintage。对修订频繁的宏观序列，`limit=600` 拿到的原始行折叠后可能只剩很少的
+观测日；而排序是 `observation_date DESC`，被砍掉的**永远是最早的历史**——正好是
+`level_robust` / `yoy_pct_12` 这类 robust 尺度最依赖的部分。
+
+内存仓储是"先去重再截断"，两个后端行为不一致，这也说明 PostgreSQL 这边是实现疏忽。
+
+改为 `DISTINCT ON (observation_date)` 在 SQL 里完成去重，`LIMIT` 作用在去重之后。
+
+### 6.2 External Bridge 的未绑定变量
+
+```python
+try:
+    result = adapter.fetch(request)
+except Exception as exc:
+    result = None
+    warning = f"adapter_unhandled_error:{...}"
+if result is None:
+    return {... "warnings": [warning] ...}
+```
+
+adapter 如果**不抛异常地返回 None**（某个分支走到函数末尾），`warning` 未绑定，
+一个降级数据源会变成 Bridge 的 500。已预置默认值。
+同时 `bridge_dropped_release_after_as_of` 不再按行重复追加。
+
+### 6.3 Dashboard 缓存永不过期
+
+`/dashboard/current` 每次读取都会 `set_current_snapshot` 刷新 TTL，只要有流量，
+缓存条目就能无限存活——一次失败的失效等于永久陈旧。现在命中缓存直接返回，
+只有回源时才写入，TTL 真正成为陈旧上限。
+
+发布路径（手动发布与 AUTO 发布）改为**失效缓存**而不是直接写入刚发布的快照：
+配合 `allow_backdated`，刚发布的 run 不一定就是首页该展示的那个，
+`latest_published()` 是唯一的裁决者。
+
+### 6.4 分发失败留下永不终结的 Run
+
+`dispatch_analysis` 先 `reserve_run`（状态 PENDING）再调 `run_deployment`。
+Prefect 不可用时异常直接上抛，PENDING 的 run 永远留在库里，E2E 轮询和管理端
+运行列表会一直等一个已经失败的任务。现在捕获异常、把 run 置为
+`FAILED / DISPATCH_FAILED` 再上抛。
+
+### 6.5 其他
+
+- `apps/api/dependencies.py` 的 `require_admin(user=None)` 是死代码，
+  一旦有人把它当 `Depends` 用就是无鉴权直通，已删除。
+- `level_robust` 的守卫比 `robust_score` 的要求少一个观测：三点序列会被
+  静默返回硬编码 0.0（"中性"），与真正的中性无法区分。改为在这种情况下
+  用完整窗口作为历史，恢复作者 `or window` 兜底的本意。
+- 公共历史与 Calibration 的"每日取最后一条"此前在 `as_of` 完全相等时由数据库行序决定，
+  现在 `list_snapshots` 的排序追加 `published_at` / 发布序号作为 tie-break，
+  两个后端结果一致且确定。
+- `news_akshare` 每行都会构造一个从未使用的 `row._asdict()`，并重复四次
+  `columns.get_loc`、每行重复 `text.lower()`，已提到循环外。
+- `PostgresRepository.save_snapshot` 的 `quality` 参数与内存仓储签名不一致
+  （一个必填、一个可选），已对齐为可选。

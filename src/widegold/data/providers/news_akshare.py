@@ -60,19 +60,26 @@ class AkshareGlobalNewsProvider:
         candidates: list[tuple[int, datetime, NewsDocument]] = []
         seen: set[tuple[str, str]] = set()
 
+        # itertuples can sanitize Chinese labels; positional access is more reliable here, and the
+        # column positions are resolved once instead of four times per row.
+        title_idx = frame.columns.get_loc("标题")
+        summary_idx = frame.columns.get_loc("摘要")
+        published_idx = frame.columns.get_loc("发布时间")
+        url_idx = frame.columns.get_loc("链接")
+        lowered_keywords = [keyword.lower() for keyword in keywords if keyword]
+
         for row in frame.itertuples(index=False):
-            data = row._asdict() if hasattr(row, "_asdict") else {}
-            # itertuples can sanitize Chinese labels; positional access is more reliable here.
-            title = str(row[frame.columns.get_loc("标题")]).strip()
-            summary = str(row[frame.columns.get_loc("摘要")]).strip()
-            published = _parse_cn_datetime(row[frame.columns.get_loc("发布时间")])
-            url = str(row[frame.columns.get_loc("链接")]).strip() or None
+            title = str(row[title_idx]).strip()
+            summary = str(row[summary_idx]).strip()
+            published = _parse_cn_datetime(row[published_idx])
+            url = str(row[url_idx]).strip() or None
             if not title or title.lower() == "nan" or published is None:
                 continue
             if published < lower or published > cutoff:
                 continue
             text = f"{title}\n{summary}"
-            score = sum(1 for keyword in keywords if keyword and keyword.lower() in text.lower())
+            lowered_text = text.lower()
+            score = sum(1 for keyword in lowered_keywords if keyword in lowered_text)
             if score < minimum_relevance_score:
                 continue
             dedup_key = (title, url or "")

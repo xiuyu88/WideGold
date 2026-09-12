@@ -67,11 +67,12 @@ def run_calibration(request: CalibrationRequest, *, repo=None, evaluation_as_of:
     # Multiple explicitly-published runs can exist for audit on the same business date. Calibration
     # evaluates the final public decision for that date so a day is not double-weighted merely
     # because an administrator published a corrected run later.
+    # list_snapshots is ordered (analysis_date, as_of, publication sequence), so keeping the last
+    # row per date is both correct and deterministic; comparing as_of alone left exact ties to the
+    # database's row order.
     latest_by_day = {}
     for snapshot in snapshots:
-        existing = latest_by_day.get(snapshot.analysis_date)
-        if existing is None or snapshot.as_of >= existing.as_of:
-            latest_by_day[snapshot.analysis_date] = snapshot
+        latest_by_day[snapshot.analysis_date] = snapshot
     snapshots = [latest_by_day[key] for key in sorted(latest_by_day)]
     now = evaluation_as_of or datetime.now(timezone.utc)
     price_map = dict(cfg.get("asset_price_indicators", {}))

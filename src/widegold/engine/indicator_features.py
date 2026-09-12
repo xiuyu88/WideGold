@@ -40,7 +40,11 @@ def level_robust(series: list[IndicatorObservation]) -> float | None:
     if len(values) < 3:
         return None
     window = values[-120:]
-    return robust_score(window[-1], window[:-1] or window)
+    # robust_score needs three historical points. Excluding the current value leaves only two on a
+    # three-observation series, which silently produced a hard 0.0 ("neutral") instead of a real
+    # state. Fall back to the full window in that case, as the `or window` fallback intended.
+    history = window[:-1] if len(window) > 3 else window
+    return robust_score(window[-1], history)
 
 
 def change_robust(series: list[IndicatorObservation], lag: int) -> float | None:

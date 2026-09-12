@@ -366,7 +366,15 @@ class InMemorySnapshotRepository:
             day = datetime.fromisoformat(item.analysis_date).date()
             if start_date <= day <= end_date and (not published_only or item.published):
                 rows.append(item)
-        rows.sort(key=lambda x: (x.analysis_date, x.as_of))
+        # Matches the PostgreSQL ordering, including the publication-sequence tie-break, so both
+        # backends give the public history the same "last row per day" answer.
+        rows.sort(
+            key=lambda x: (
+                x.analysis_date,
+                x.as_of,
+                self._publish_order.get(x.analysis_run_id, 0),
+            )
+        )
         return rows
 
     def save_calibration_report(self, result, *, requested_by: UUID | None = None) -> None:

@@ -9,7 +9,7 @@ from widegold.domain.enums import AnalysisRunMode, AnalysisStatus, DataStatus, P
 from widegold.graphs.event_intelligence.graph import run_event_graph_with_meta
 from widegold.llm.service import LLMFallbackExhausted
 from widegold.repositories.factory import repository
-from widegold.runtime.cache import set_current_snapshot
+from widegold.runtime.cache import invalidate_current_snapshot
 from widegold.runtime.locks import DistributedLock, analysis_lock_key
 from widegold.schemas.common import AnalysisContext, AnalysisRunRequest
 from widegold.schemas.events import NewsCluster
@@ -455,7 +455,9 @@ def _run_analysis_impl(
         repo.save_snapshot(snapshot, quality)
         repo.update_run(context.analysis_run_id, status, quality=quality)
         if should_publish:
-            set_current_snapshot(snapshot)
+            # The dashboard resolves "current" from the newest analysis date, so a replay that
+            # auto-publishes an older date must not be able to install itself as the cached answer.
+            invalidate_current_snapshot()
 
         trace.emit(
             "RUN",

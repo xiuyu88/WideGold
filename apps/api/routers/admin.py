@@ -10,7 +10,7 @@ from apps.api.dependencies import admin_user
 from widegold.auth.service import Principal
 from widegold.domain.enums import AnalysisRunMode, PublishMode, TriggerType
 from widegold.repositories.factory import repository
-from widegold.runtime.cache import set_current_snapshot
+from widegold.runtime.cache import invalidate_current_snapshot
 from widegold.schemas.common import AnalysisRunRequest
 from widegold.schemas.indicators import IndicatorObservation
 from widegold.schemas.replay import CalibrationRequest, ReplayRequest
@@ -213,7 +213,10 @@ def publish_run(
         )
     published = repo.publish(run_id)
     if published is not None:
-        set_current_snapshot(published)
+        # Invalidate rather than cache this snapshot directly: with allow_backdated the published
+        # run is not necessarily the one the dashboard should serve, and latest_published() is the
+        # single place that decides.
+        invalidate_current_snapshot()
         repo.append_audit(
             actor_user_id=user.user_id, action="ADMIN_PUBLISH", resource_type="analysis_run",
             resource_id=str(run_id), after={"status": "PUBLISHED"}

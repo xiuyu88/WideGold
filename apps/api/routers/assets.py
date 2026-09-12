@@ -47,11 +47,11 @@ def asset_history(
     snapshots = repository().list_snapshots(start_date=start, end_date=end, published_only=True)
     # A manual Preview may later be explicitly published on the same business date. Public history
     # exposes one final point per date: the latest published snapshot for that analysis date.
+    # list_snapshots orders by (analysis_date, as_of, published_at), so the last row seen for a
+    # date is the one to keep; comparing only as_of left exact ties resolved by row order.
     latest_by_day = {}
     for snapshot in snapshots:
-        existing = latest_by_day.get(snapshot.analysis_date)
-        if existing is None or snapshot.as_of >= existing.as_of:
-            latest_by_day[snapshot.analysis_date] = snapshot
+        latest_by_day[snapshot.analysis_date] = snapshot
     snapshots = [latest_by_day[key] for key in sorted(latest_by_day)]
     points: list[AssetHistoryPoint] = []
     for snapshot in snapshots:

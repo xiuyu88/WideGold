@@ -756,7 +756,14 @@ class PostgresRepository:
                     AnalysisRunModel.analysis_date >= start_date,
                     AnalysisRunModel.analysis_date <= end_date,
                 )
-                .order_by(AnalysisRunModel.analysis_date.asc(), AnalysisRunModel.as_of_ts.asc())
+                # published_at breaks ties between two runs of the same business date with the
+                # same cutoff, so the caller's "keep the last row per day" stays deterministic.
+                .order_by(
+                    AnalysisRunModel.analysis_date.asc(),
+                    AnalysisRunModel.as_of_ts.asc(),
+                    AnalysisSnapshotModel.published_at.asc().nulls_first(),
+                    AnalysisSnapshotModel.created_at.asc(),
+                )
             )
             if published_only:
                 stmt = stmt.where(AnalysisSnapshotModel.published.is_(True))
@@ -1016,6 +1023,10 @@ class PostgresRepository:
         self, indicator_id: str, *, as_of: datetime, asset_id: str | None = None, limit: int = 500
     ) -> list[IndicatorObservation]:
         with db_session() as session:
+            # DISTINCT ON collapses revision vintages *before* LIMIT is applied.  Limiting the raw
+            # rows first and de-duplicating afterwards silently shortened the history of any
+            # frequently revised series - and because rows are ordered newest-first, the part that
+            # disappeared was always the oldest data the robust feature windows depend on.
             rows = session.execute(
                 select(IndicatorObservationModel)
                 .where(
@@ -1023,10 +1034,13 @@ class PostgresRepository:
                     IndicatorObservationModel.asset_id == asset_id,
                     IndicatorObservationModel.release_ts <= as_of,
                 )
-                .order_by(IndicatorObservationModel.observation_date.desc(), IndicatorObservationModel.release_ts.desc())
+                .distinct(IndicatorObservationModel.observation_date)
+                .order_by(
+                    IndicatorObservationModel.observation_date.desc(),
+                    IndicatorObservationModel.release_ts.desc(),
+                )
                 .limit(limit)
             ).scalars().all()
-            # For each observation date, retain the latest vintage known by as_of.
             by_date = {}
             for row in rows:
                 by_date.setdefault(row.observation_date, row)
@@ -1069,7 +1083,9 @@ class PostgresRepository:
                 "consecutive_failures": row.consecutive_failures, "details": row.details_json or {},
             } for row in rows]
 
-    def save_snapshot(self, snapshot: DashboardSnapshot, quality: QualityGateResult) -> None:
+    def save_snapshot(
+        self, snapshot: DashboardSnapshot, quality: QualityGateResult | None = None
+    ) -> None:
         now = datetime.now(timezone.utc)
         with db_session() as session:
             existing = session.get(AnalysisSnapshotModel, snapshot.analysis_run_id)

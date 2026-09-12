@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
+from widegold.domain.enums import AnalysisStatus
 from widegold.repositories.factory import repository
 from widegold.schemas.common import AnalysisRunRequest
 from widegold.services.analysis import run_analysis
@@ -30,9 +31,21 @@ def dispatch_analysis(request: AnalysisRunRequest) -> DispatchResult:
     except ImportError as exc:  # pragma: no cover - production dependency path
         raise RuntimeError("Prefect orchestration requested but prefect is not installed") from exc
 
-    flow_run = run_deployment(
-        name=settings.prefect_deployment_name,
-        parameters={"request_payload": request.model_dump(mode="json")},
-        timeout=0,
-    )
+    try:
+        flow_run = run_deployment(
+            name=settings.prefect_deployment_name,
+            parameters={"request_payload": request.model_dump(mode="json")},
+            timeout=0,
+        )
+    except Exception as exc:
+        # The run row is already reserved as PENDING. Leaving it there after a dispatch failure
+        # creates a run that never reaches a terminal state, which is exactly what makes E2E
+        # polling and the admin run list hang on a problem that already happened.
+        repository().update_run(
+            analysis_run_id,
+            AnalysisStatus.FAILED,
+            error_code="DISPATCH_FAILED",
+            error_summary=f"{exc.__class__.__name__}: {exc}",
+        )
+        raise
     return DispatchResult(analysis_run_id, flow_run.id, "PENDING")

@@ -54,6 +54,10 @@ class ExternalBridgeService:
                 "observations": [],
                 "warnings": ["capability_not_supported"],
             }
+        # Pre-seeded because an adapter that falls off the end of a branch returns None without
+        # raising; the previous code then referenced an unbound name and turned a degraded source
+        # into a 500 from the bridge.
+        warning = "adapter_returned_no_result"
         try:
             result = adapter.fetch(request)
         except Exception as exc:
@@ -77,7 +81,10 @@ class ExternalBridgeService:
                 if release.tzinfo is None:
                     release = release.replace(tzinfo=timezone.utc)
                 if release > request.as_of.astimezone(timezone.utc):
-                    warnings.append("bridge_dropped_release_after_as_of")
+                    # One marker is enough; a wide look-ahead window would otherwise repeat this
+                    # warning hundreds of times and drown the real ones.
+                    if "bridge_dropped_release_after_as_of" not in warnings:
+                        warnings.append("bridge_dropped_release_after_as_of")
                     continue
             normalized = dict(item)
             normalized.setdefault("ingest_ts", now)

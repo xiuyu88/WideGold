@@ -1,5 +1,22 @@
 # 更新日志
 
+## V1.3 — 细节复查修复 — 2026-09-12
+
+- **Point-in-Time 历史被静默截断**：`get_indicator_history` 先 LIMIT 后去重 revision vintage，
+  修订频繁的序列会丢掉最早的历史。改为 SQL `DISTINCT ON (observation_date)`，LIMIT 作用在去重之后。
+- **External Bridge 未绑定变量**：adapter 不抛异常地返回 None 时 `warning` 未定义，
+  降级数据源会变成 Bridge 500。已预置默认值，并对 look-ahead 丢弃告警去重。
+- **Dashboard 缓存永不过期**：每次读取都刷新 TTL，一次失效失败等于永久陈旧。
+  命中缓存直接返回；发布路径改为失效缓存而非写入刚发布的快照。
+- **分发失败留下永不终结的 Run**：`dispatch_analysis` 在 `run_deployment` 失败时
+  把已 reserve 的 run 置为 `FAILED / DISPATCH_FAILED`，不再留下永久 PENDING。
+- 删除 `require_admin(user=None)` 死代码（误用即无鉴权直通）。
+- `level_robust` 的守卫比 `robust_score` 的要求少一个观测，三点序列会静默返回硬编码 0.0。
+- 公共历史与 Calibration 的"每日取最后一条"增加确定性 tie-break，两个仓储后端结果一致。
+- `news_akshare` 移除每行未使用的 `_asdict()`，列定位与关键词小写化提到循环外。
+- `save_snapshot` 两个仓储后端的签名对齐。
+- 新增 4 个回归测试（`tests/test_runtime_hardening.py`）。
+
 ## V1.2 — 全链路代码复查修复 — 2026-09-12
 
 - **黄金置信度惩罚从不生效**：权益冲突规则此前对所有资产无差别触发，`confidence.py` 用
