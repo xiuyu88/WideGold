@@ -12,7 +12,7 @@ WideGold V1 将宏观、利率、汇率、资金、市场状态、新闻事件�
 
 ![WideGold Dashboard - latest dual view](docs/images/dashboard-latest.png)
 
-### Dashboard（历史截图）
+### Dashboard
 
 ![WideGold Dashboard - published view](docs/images/dashboard.png)
 
